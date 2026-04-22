@@ -16,7 +16,9 @@ import {
   RotateCcw
 } from 'lucide-react';
 
-const API_BASE = `http://${window.location.hostname}:3000/api/portal`;
+const API_BASE = window.location.hostname.includes('rosariogroupllc.com')
+  ? `https://mail-api.rosariogroupllc.com/api/portal`
+  : `http://${window.location.hostname}:3000/api/portal`;
 
 const PortalApp = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
