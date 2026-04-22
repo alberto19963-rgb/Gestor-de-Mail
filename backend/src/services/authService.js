@@ -37,8 +37,22 @@ const getGoogleAuthUrl = async (userId) => {
 };
 
 const getGoogleTokens = async (code) => {
-  const { tokens } = await oauth2Client.getToken(code);
-  return tokens;
+  let clientId = process.env.GOOGLE_CLIENT_ID;
+  let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  let redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://mail-api.rosariogroupllc.com/auth/google/callback';
+
+  if (!clientId || !clientSecret) {
+    const settings = await prisma.appSetting.findUnique({ where: { provider: 'GMAIL' } });
+    if (settings) {
+      clientId = settings.clientId;
+      clientSecret = settings.clientSecret;
+      redirectUri = 'https://mail-api.rosariogroupllc.com/auth/google/callback';
+    }
+  }
+
+  const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  const { tokens } = await oauth2.getToken(code);
+  return { tokens };
 };
 
 // Configuración de Microsoft (Outlook)
