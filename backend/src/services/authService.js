@@ -9,11 +9,28 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI
 );
 
-const getGoogleAuthUrl = (userId) => {
-  return oauth2Client.generateAuthUrl({
+const getGoogleAuthUrl = async (userId) => {
+  let clientId = process.env.GOOGLE_CLIENT_ID;
+  let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  let redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+  if (!clientId || !clientSecret) {
+    const settings = await prisma.appSetting.findUnique({ where: { provider: 'GOOGLE' } });
+    if (settings) {
+      clientId = settings.clientId;
+      clientSecret = settings.clientSecret;
+      redirectUri = settings.callbackUrl;
+    }
+  }
+
+  if (!clientId) throw new Error('Google Client ID no configurado');
+
+  const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  
+  return oauth2.generateAuthUrl({
     access_type: 'offline',
     scope: ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/userinfo.email'],
-    state: userId, // Pasamos el userId para saber a quién pertenece la cuenta al volver
+    state: userId,
     prompt: 'consent'
   });
 };

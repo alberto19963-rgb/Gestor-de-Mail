@@ -1,13 +1,18 @@
 const express = require('express');
 const router = express.Router();
+const { google } = require('googleapis');
+const prisma = require('../config/db');
 const { sendEmail } = require('../services/emailService');
 const { trackOpening } = require('../controllers/trackingController');
 const { getGoogleAuthUrl, getGoogleTokens } = require('../services/authService');
-const prisma = require('../config/db');
 const notificationService = require('../services/notificationService');
-
-const fs = require('fs');
 const path = require('path');
+
+// Middleware de Log
+router.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
 // Ruta para persistencia del código (fuera de la memoria volátil)
 const OTP_FILE = path.join(__dirname, '../../otp_state.json');
@@ -77,12 +82,12 @@ router.get('/api/admin/platforms', async (req, res) => {
 
 // Crear Programa
 router.post('/api/admin/platforms', async (req, res) => {
-  const { name, callbackUrl } = req.body;
+  const { name, url } = req.body;
   try {
     const platform = await prisma.platform.create({
       data: { 
         name, 
-        callbackUrl,
+        url,
         apiKey: `pk_${Math.random().toString(36).substring(2, 20)}`
       }
     });
@@ -273,13 +278,115 @@ router.post('/api/admin/settings', async (req, res) => {
 
 // --- RUTAS DE ENVÍO Y TRACKING ---
 router.post('/api/send', async (req, res) => {
-  const { accountId, recipient, subject, bodyHtml, apiKey } = req.body;
+  const { accountId, email, recipient, subject, bodyHtml, apiKey } = req.body;
+  
+  // 1. Validar Plataforma
   const platform = await prisma.platform.findUnique({ where: { apiKey } });
   if (!platform) return res.status(401).json({ error: 'API Key inválida' });
 
   try {
-    const result = await sendEmail(accountId, recipient, subject, bodyHtml);
+    let targetAccountId = accountId;
+
+    // 2. Si pasan email en lugar de ID, buscar la cuenta
+    if (!targetAccountId && email) {
+      const account = await prisma.emailAccount.findFirst({
+        where: { email, status: 'ACTIVE' }
+      });
+      if (!account) return res.status(404).json({ error: 'Cuenta de email no encontrada o inactiva' });
+      targetAccountId = account.id;
+    }
+
+    if (!targetAccountId) return res.status(400).json({ error: 'Se requiere accountId o email' });
+
+    const result = await sendEmail(targetAccountId, recipient, subject, bodyHtml);
     res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- RUTAS DE AUTH (CALLBACKS) ---
+router.get('/auth/google/callback', async (req, res) => {
+  const { code, state } = req.query;
+  try {
+    const { tokens } = await getGoogleTokens(code);
+    const { companyId, email } = JSON.parse(state);
+
+    const account = await prisma.emailAccount.upsert({
+      where: { email },
+      update: {
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        tokenExpiresAt: new Date(Date.now() + tokens.expiry_date),
+        status: 'ACTIVE'
+      },
+      create: {
+        email,
+        provider: 'GMAIL',
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        tokenExpiresAt: new Date(Date.now() + tokens.expiry_date),
+        companyId,
+        auditAccessKey: `pass_${Math.random().toString(36).substring(2, 10)}`,
+        status: 'ACTIVE'
+      }
+    });
+
+    res.send(`
+      <div style="font-family: sans-serif; text-align: center; padding: 50px;">
+        <h1 style="color: #10b981;">¡Cuenta Enlazada con Éxito!</h1>
+        <p>Ya puedes cerrar esta ventana y volver a la aplicación.</p>
+      </div>
+    `);
+  } catch (error) {
+    res.status(500).send('Error en la autenticación: ' + error.message);
+  }
+});
+
+// --- API EXTERNA PARA ENLAZAR GMAIL ---
+router.post('/api/external/request-auth', async (req, res) => {
+  const { email, companyName, apiKey } = req.body;
+  
+  // 1. Validar Plataforma
+  const platform = await prisma.platform.findUnique({ where: { apiKey } });
+  if (!platform) return res.status(401).json({ error: 'API Key de plataforma inválida' });
+
+  try {
+    // 2. Buscar o crear empresa
+    let company = await prisma.company.findFirst({
+      where: { name: companyName, platformId: platform.id }
+    });
+
+    if (!company) {
+      company = await prisma.company.create({
+        data: {
+          name: companyName,
+          platformId: platform.id,
+          clientApiKey: `cli_${Math.random().toString(36).substring(2, 15)}`
+        }
+      });
+    }
+
+    // 3. Generar URL de Google Auth
+    const authUrl = await getGoogleAuthUrl(JSON.stringify({ companyId: company.id, email }));
+    res.json({ authUrl });
+
+  } catch (error) {
+    console.error('Error in request-auth:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/api/external/status/:email', async (req, res) => {
+  const { email } = req.params;
+  try {
+    const account = await prisma.emailAccount.findUnique({
+      where: { email },
+      select: { auditAccessKey: true, status: true }
+    });
+    
+    if (!account) return res.status(404).json({ error: 'Cuenta no encontrada' });
+    res.json(account);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
