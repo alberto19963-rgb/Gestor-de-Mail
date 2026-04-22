@@ -555,11 +555,15 @@ const App = () => {
                       <span className="text-xs text-slate-400">Conexión NAS</span>
                       {window.location.hostname === NAS_IP ? (
                         <span className="text-xs font-bold text-emerald-400 flex items-center">
-                           Excelente
+                           Excelente (NAS)
+                        </span>
+                      ) : window.location.hostname.includes('rosariogroupllc.com') ? (
+                        <span className="text-xs font-bold text-blue-400 flex items-center">
+                          Remota (Cloudflare)
                         </span>
                       ) : (
                         <span className="text-xs font-bold text-rose-400 flex items-center">
-                          Local (Mac)
+                          Desarrollo (Mac)
                         </span>
                       )}
                     </div>
