@@ -102,25 +102,28 @@ router.get('/api/admin/logs', async (req, res) => {
   }
 });
 
-// --- API PORTAL (USUARIO FINAL) ---
+// --- API CONFIGURACIÓN (LLAVES MAESTRAS) ---
 
-// Login y Logs de un usuario
-router.post('/api/portal/login', async (req, res) => {
-  const { email, accessKey } = req.body;
+// Obtener todas las configuraciones
+router.get('/api/admin/settings', async (req, res) => {
   try {
-    const account = await prisma.emailAccount.findFirst({
-      where: { email, auditAccessKey: accessKey },
-      include: { company: true }
+    const settings = await prisma.appSetting.findMany();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Guardar/Actualizar configuración de un proveedor
+router.post('/api/admin/settings', async (req, res) => {
+  const { provider, clientId, clientSecret } = req.body;
+  try {
+    const setting = await prisma.appSetting.upsert({
+      where: { provider },
+      update: { clientId, clientSecret },
+      create: { provider, clientId, clientSecret }
     });
-    
-    if (!account) return res.status(401).json({ error: 'Credenciales inválidas' });
-    
-    const logs = await prisma.sentEmail.findMany({
-      where: { accountId: account.id },
-      orderBy: { sentAt: 'desc' }
-    });
-    
-    res.json({ account, logs });
+    res.json(setting);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

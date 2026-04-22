@@ -380,16 +380,57 @@ const App = () => {
         )
         /* VISTA: CONFIGURACIÓN */
         : (
-          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+          <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
               <div className="flex items-center space-x-3 mb-8">
                 <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center"><Zap size={20} /></div>
                 <div>
                   <h4 className="font-bold text-slate-900 text-lg">Credenciales Maestras</h4>
-                  <p className="text-slate-500 text-sm">Configura las llaves principales para cada proveedor.</p>
+                  <p className="text-slate-500 text-sm">Configura las llaves principales para cada proveedor de correo.</p>
                 </div>
               </div>
-              <p className="text-sm text-slate-400 italic">Configuración segura almacenada en el NAS.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Google Section */}
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const data = { provider: 'GMAIL', clientId: e.target.cid.value, clientSecret: e.target.cs.value };
+                  await fetch(`${API_BASE}/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                  alert('Configuración de Google guardada');
+                }} className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full" />
+                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Google Cloud (Gmail)</span>
+                  </div>
+                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm shadow-sm" placeholder="Client ID" />
+                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm shadow-sm" placeholder="Client Secret" />
+                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar Google</button>
+                </form>
+
+                {/* Microsoft Section */}
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const data = { provider: 'OUTLOOK', clientId: e.target.cid.value, clientSecret: e.target.cs.value };
+                  await fetch(`${API_BASE}/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                  alert('Configuración de Microsoft guardada');
+                }} className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Microsoft Azure (Outlook)</span>
+                  </div>
+                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm shadow-sm" placeholder="Application ID" />
+                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm shadow-sm" placeholder="Client Secret" />
+                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar Microsoft</button>
+                </form>
+              </div>
+
+              <div className="mt-8 p-6 bg-blue-50 rounded-3xl border border-blue-100 flex items-start space-x-4">
+                <AlertCircle className="text-blue-600 mt-1" size={20} />
+                <div className="text-xs text-blue-700 leading-relaxed font-medium">
+                  <p className="font-bold mb-1">Información de Seguridad:</p>
+                  Estas credenciales se utilizan para permitir que tus clientes vinculen sus cuentas vía OAuth2. Asegúrate de configurar la <span className="underline">Redirect URI</span> en tus paneles de desarrollador.
+                </div>
+              </div>
             </div>
           </div>
         )}
