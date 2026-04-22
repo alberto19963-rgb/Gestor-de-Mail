@@ -32,9 +32,9 @@ const msalConfig = {
   }
 };
 
-const cca = new ConfidentialClientApplication(msalConfig);
-
 const getMicrosoftAuthUrl = (userId) => {
+  if (!process.env.AZURE_CLIENT_ID) throw new Error('Azure Client ID no configurado');
+  const cca = new ConfidentialClientApplication(msalConfig);
   return cca.getAuthCodeUrl({
     scopes: ['https://graph.microsoft.com/Mail.Send', 'offline_access', 'User.Read'],
     redirectUri: process.env.AZURE_REDIRECT_URI,
@@ -43,6 +43,8 @@ const getMicrosoftAuthUrl = (userId) => {
 };
 
 const getMicrosoftTokens = async (code) => {
+  if (!process.env.AZURE_CLIENT_ID) throw new Error('Azure Client ID no configurado');
+  const cca = new ConfidentialClientApplication(msalConfig);
   const tokenRequest = {
     code,
     scopes: ['https://graph.microsoft.com/Mail.Send', 'offline_access', 'User.Read'],
