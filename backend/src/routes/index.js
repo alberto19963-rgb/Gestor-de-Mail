@@ -6,12 +6,41 @@ const { getGoogleAuthUrl, getGoogleTokens } = require('../services/authService')
 const prisma = require('../config/db');
 const notificationService = require('../services/notificationService');
 
+const fs = require('fs');
+const path = require('path');
+
+// Ruta para persistencia del código (fuera de la memoria volátil)
+const OTP_FILE = path.join(__dirname, '../../otp_state.json');
+
 // --- SEGURIDAD: ALMACÉN DE LLAVE DINÁMICA ---
 let currentOTP = {
   code: null,
   uses: 0,
   maxUses: 5,
   expiresAt: null
+};
+
+// Cargar estado inicial si existe
+try {
+  if (fs.existsSync(OTP_FILE)) {
+    const saved = fs.readFileSync(OTP_FILE, 'utf8');
+    const parsed = JSON.parse(saved);
+    if (parsed.expiresAt) {
+      parsed.expiresAt = new Date(parsed.expiresAt);
+    }
+    currentOTP = parsed;
+    console.log('💾 Estado de OTP recuperado del disco.');
+  }
+} catch (e) {
+  console.log('⚠️ No se pudo cargar el estado de OTP anterior.');
+}
+
+const saveOTP = () => {
+  try {
+    fs.writeFileSync(OTP_FILE, JSON.stringify(currentOTP, null, 2));
+  } catch (e) {
+    console.error('❌ Error al guardar el estado de OTP:', e.message);
+  }
 };
 
 // --- API ADMINISTRATIVA (DASHBOARD) ---
@@ -161,6 +190,8 @@ router.post('/api/admin/request-otp', async (req, res) => {
     expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000)
   };
 
+  saveOTP(); // Guardar en disco
+
   const alertMsg = `🔐 Nueva Llave Maestra: ${newCode}\n\nUso permitido: 5 veces.\nVigencia: 24 horas.`;
   await notificationService.sendAdminAlert('Acceso de Seguridad', alertMsg, 1);
 
@@ -185,6 +216,7 @@ router.post('/api/admin/verify-otp', (req, res) => {
   }
 
   currentOTP.uses += 1;
+  saveOTP(); // Actualizar usos en disco
   
   res.json({ 
     success: true, 
