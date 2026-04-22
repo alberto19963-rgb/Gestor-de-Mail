@@ -5,10 +5,22 @@ const prisma = require('../config/db');
 const sendEmail = async (accountId, recipient, subject, bodyHtml) => {
   const account = await prisma.emailAccount.findUnique({
     where: { id: accountId },
-    include: { user: true }
+    include: { company: true }
   });
 
   if (!account) throw new Error('Cuenta de email no encontrada');
+
+  // Cargar Settings Maestras
+  let googleClientId = process.env.GOOGLE_CLIENT_ID;
+  let googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!googleClientId || !googleClientSecret) {
+    const settings = await prisma.appSetting.findUnique({ where: { provider: 'GMAIL' } });
+    if (settings) {
+      googleClientId = settings.clientId;
+      googleClientSecret = settings.clientSecret;
+    }
+  }
 
   // Generar Tracking ID
   const sentEmail = await prisma.sentEmail.create({
@@ -22,17 +34,14 @@ const sendEmail = async (accountId, recipient, subject, bodyHtml) => {
   });
 
   // Inyectar píxel de seguimiento
-  const trackingPixelUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/api/track/${sentEmail.trackingId}`;
+  const trackingPixelUrl = `${process.env.BASE_URL || 'https://mail-api.rosariogroupllc.com'}/api/track/${sentEmail.trackingId}`;
   const finalBodyHtml = `${bodyHtml}<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />`;
 
   try {
     let transporter;
 
     if (account.provider === 'GMAIL') {
-      const auth = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET
-      );
+      const auth = new google.auth.OAuth2(googleClientId, googleClientSecret);
       auth.setCredentials({ refresh_token: account.refreshToken });
       
       const gmail = google.gmail({ version: 'v1', auth });
