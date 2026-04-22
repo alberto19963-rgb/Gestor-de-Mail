@@ -86,6 +86,18 @@ const sendEmail = async (accountId, recipient, subject, bodyHtml) => {
     return sentEmail;
   } catch (error) {
     console.error('Error enviando email:', error);
+    
+    // Notificar al administrador vía Pushover
+    try {
+      const notificationService = require('./notificationService');
+      await notificationService.sendAdminAlert(
+        'Fallo de Envío', 
+        `Error enviando a ${recipient} desde ${account.email}. Detalle: ${error.message}`
+      );
+    } catch (nError) {
+      console.error('No se pudo enviar la alerta de Pushover:', nError.message);
+    }
+
     await prisma.sentEmail.update({
       where: { id: sentEmail.id },
       data: { status: 'ERROR' }
@@ -94,4 +106,14 @@ const sendEmail = async (accountId, recipient, subject, bodyHtml) => {
   }
 };
 
-module.exports = { sendEmail };
+// Función para notificar errores críticos del sistema (Base de datos, etc)
+const notifySystemError = async (errorTitle, errorMessage) => {
+  try {
+    const notificationService = require('./notificationService');
+    await notificationService.sendAdminAlert(errorTitle, errorMessage, 2); // Prioridad alta
+  } catch (e) {
+    console.error('Error enviando notificación de sistema:', e);
+  }
+};
+
+module.exports = { sendEmail, notifySystemError };

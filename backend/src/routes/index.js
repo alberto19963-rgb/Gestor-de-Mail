@@ -4,6 +4,15 @@ const { sendEmail } = require('../services/emailService');
 const { trackOpening } = require('../controllers/trackingController');
 const { getGoogleAuthUrl, getGoogleTokens } = require('../services/authService');
 const prisma = require('../config/db');
+const notificationService = require('../services/notificationService');
+
+// --- SEGURIDAD: ALMACÉN DE LLAVE DINÁMICA ---
+let currentOTP = {
+  code: null,
+  uses: 0,
+  maxUses: 5,
+  expiresAt: null
+};
 
 // --- API ADMINISTRATIVA (DASHBOARD) ---
 
@@ -104,12 +113,97 @@ router.get('/api/admin/logs', async (req, res) => {
 
 // --- MONITOREO ---
 router.get('/api/health', async (req, res) => {
+  let dbStatus = 'DISCONNECTED';
+  
   try {
-    // Verificamos conexión real con DB
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'UP', database: 'CONNECTED', timestamp: new Date() });
+    // Intentamos conectar con un tiempo límite de 2 segundos
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+    ]);
+    dbStatus = 'CONNECTED';
+  } catch (e) {
+    console.log('⚠️ Base de datos no responde en localhost:', e.message);
+  }
+
+  res.json({ 
+    status: 'UP', 
+    database: dbStatus, 
+    pushover: !!(process.env.PUSHOVER_USER_KEY && process.env.PUSHOVER_API_TOKEN),
+    timestamp: new Date() 
+  });
+});
+
+// --- SEGURIDAD: SOLICITAR CÓDIGO (OTP) ---
+router.post('/api/admin/request-otp', async (req, res) => {
+  const { name } = req.body;
+  
+  if (name !== 'Luis Alberto del Rosario') {
+    return res.status(401).json({ error: 'Nombre no autorizado. Solo el Administrador puede entrar.' });
+  }
+
+  const now = new Date();
+  
+  // Reutilizar código si sigue vivo
+  if (currentOTP.code && currentOTP.uses < currentOTP.maxUses && currentOTP.expiresAt > now) {
+    const message = `Tu llave sigue activa: ${currentOTP.code}\nUso: ${currentOTP.uses}/${currentOTP.maxUses}\nExpira en 24h.`;
+    await notificationService.sendAdminAlert('Llave Activa', message, 1);
+    return res.json({ message: 'Código activo reenviado' });
+  }
+
+  // Generar nuevo si no hay o murió
+  const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+  currentOTP = {
+    code: newCode,
+    uses: 0,
+    maxUses: 5,
+    expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000)
+  };
+
+  const alertMsg = `🔐 Nueva Llave Maestra: ${newCode}\n\nUso permitido: 5 veces.\nVigencia: 24 horas.`;
+  await notificationService.sendAdminAlert('Acceso de Seguridad', alertMsg, 1);
+
+  res.json({ message: 'Nuevo código enviado por Pushover' });
+});
+
+// --- SEGURIDAD: VERIFICAR CÓDIGO ---
+router.post('/api/admin/verify-otp', (req, res) => {
+  const { code } = req.body;
+  const now = new Date();
+
+  if (!currentOTP.code || currentOTP.code !== code) {
+    return res.status(401).json({ error: 'Código incorrecto' });
+  }
+
+  if (currentOTP.uses >= currentOTP.maxUses) {
+    return res.status(401).json({ error: 'Llave agotada (5/5 usos). Solicita una nueva.' });
+  }
+
+  if (currentOTP.expiresAt < now) {
+    return res.status(401).json({ error: 'Llave expirada (pasaron 24h).' });
+  }
+
+  currentOTP.uses += 1;
+  
+  res.json({ 
+    success: true, 
+    usesDone: currentOTP.uses,
+    maxUses: currentOTP.maxUses,
+    message: `Acceso concedido. Uso ${currentOTP.uses} de 5.`
+  });
+});
+
+// Probar notificación de Pushover
+router.get('/api/admin/test-pushover', async (req, res) => {
+  try {
+    const notificationService = require('../services/notificationService');
+    await notificationService.sendAdminAlert(
+      'Prueba de Conexión', 
+      '¡Hola Alberto! Si recibes esto, el sistema de alertas blindado está funcionando perfectamente.'
+    );
+    res.json({ message: 'Alerta de prueba enviada' });
   } catch (error) {
-    res.status(500).json({ status: 'DOWN', database: 'ERROR', message: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 

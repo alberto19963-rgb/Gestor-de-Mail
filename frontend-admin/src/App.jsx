@@ -23,7 +23,10 @@ import {
   RotateCcw
 } from 'lucide-react';
 
-const API_BASE = `http://${window.location.hostname}:3000/api/admin`;
+const NAS_IP = '192.168.68.208';
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? `http://127.0.0.1:3001/api/admin` 
+  : `http://${window.location.hostname}:3001/api/admin`;
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
@@ -57,6 +60,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 const App = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -64,19 +68,104 @@ const App = () => {
   const [modalType, setModalType] = useState(''); 
   const [setupStep, setSetupStep] = useState(1);
   const [selectedProvider, setSelectedProvider] = useState('gmail');
+  const [isTestMode, setIsTestMode] = useState(false); 
 
   // Estados reales
   const [stats, setStats] = useState({ total: 0, success: 0, errors: 0, successRate: '0%' });
   const [platforms, setPlatforms] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [serverHealth, setServerHealth] = useState({ status: 'LOADING', database: 'LOADING' });
+
+  const [authStep, setAuthStep] = useState(1); // 1: Nombre, 2: OTP
+  const [userName, setUserName] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [authMessage, setAuthMessage] = useState({ text: '', type: '' });
+
+  // Verificar sesión de 24h al cargar
+  useEffect(() => {
+    const session = localStorage.getItem('mailengine_session');
+    if (session) {
+      const { expiry } = JSON.parse(session);
+      if (new Date().getTime() < expiry) {
+        setIsAuthenticated(true);
+      } else {
+        localStorage.removeItem('mailengine_session');
+      }
+    }
+  }, []);
+
+  const handleRequestOTP = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setAuthMessage({ text: 'Conectando con el búnker...', type: 'success' });
+    try {
+      console.log('🚀 Solicitando código para:', userName);
+      const res = await fetch(`${API_BASE}/request-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: userName })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        console.log('✅ Código solicitado con éxito');
+        setAuthStep(2);
+        setAuthMessage({ text: '¡Código enviado! Revisa tu Pushover 📱', type: 'success' });
+        alert('¡Código enviado! Revisa tu celular 📱');
+      } else {
+        console.error('❌ Error del servidor:', data.error);
+        setAuthMessage({ text: data.error, type: 'error' });
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error('❌ Error de conexión:', err);
+      setAuthMessage({ text: 'No puedo conectar con el motor. ¿Está encendido?', type: 'error' });
+      alert('Error de conexión con el motor 3001');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: otpCode })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // Crear sesión de 24 horas
+        const expiry = new Date().getTime() + 24 * 60 * 60 * 1000;
+        localStorage.setItem('mailengine_session', JSON.stringify({ expiry }));
+        setIsAuthenticated(true);
+        alert(data.message); // Mostrar usos realizados
+      } else {
+        setAuthMessage({ text: data.error, type: 'error' });
+      }
+    } catch (err) {
+      setAuthMessage({ text: 'Error al verificar código', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('mailengine_session');
+    setIsAuthenticated(false);
+    setAuthStep(1);
+    setUserName('');
+    setOtpCode('');
+  };
 
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch(`http://${window.location.hostname}:3000/api/health`);
+        const healthUrl = API_BASE.replace('/admin', '/health');
+        const res = await fetch(healthUrl);
         const data = await res.json();
         setServerHealth(data);
       } catch (e) {
@@ -89,10 +178,13 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [activeTab]);
+    if (isAuthenticated) {
+      fetchData();
+    }
+  }, [activeTab, isAuthenticated]);
 
   const fetchData = async () => {
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const [sRes, pRes, cRes, lRes] = await Promise.all([
@@ -102,16 +194,116 @@ const App = () => {
         fetch(`${API_BASE}/logs`)
       ]);
       
-      setStats(await sRes.json());
-      setPlatforms(await pRes.json());
-      setCompanies(await cRes.json());
-      setLogs(await lRes.json());
+      const statsData = await sRes.json();
+      const platformsData = await pRes.json();
+      const companiesData = await cRes.json();
+      const logsData = await lRes.json();
+
+      setStats(statsData.total ? statsData : { total: 0, success: 0, errors: 0, successRate: '0%' });
+      setPlatforms(Array.isArray(platformsData) ? platformsData : []);
+      setCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setLogs(Array.isArray(logsData) ? logsData : []);
+
     } catch (error) {
-      console.error('Error cargando datos:', error);
+      setStats({ total: 0, success: 0, errors: 0, successRate: '0%' });
+      setPlatforms([]);
+      setCompanies([]);
+      setLogs([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Pantalla de Login Moderna y Diferente
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#0a0c10] flex items-center justify-center p-6 relative overflow-hidden font-sans">
+        {/* Luces de fondo dinámicas */}
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[140px] animate-pulse" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-indigo-600/10 rounded-full blur-[140px]" />
+        
+        <div className="w-full max-w-md relative">
+          <div className="bg-white/5 backdrop-blur-3xl border border-white/10 p-12 rounded-[50px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] relative z-10 text-center">
+            
+            <div className="mb-10 inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-3xl shadow-2xl shadow-blue-600/30 transform hover:rotate-12 transition-transform duration-500">
+              <ShieldCheck className="text-white" size={40} />
+            </div>
+
+            <h2 className="text-4xl font-black text-white tracking-tighter mb-2">Hola, Luis.</h2>
+            <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.2em] mb-10">Seguridad Dinámica Activa</p>
+
+            {authMessage.text && (
+              <div className={`mb-8 p-4 rounded-2xl text-xs font-bold animate-in fade-in slide-in-from-top-2 ${authMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                {authMessage.text}
+              </div>
+            )}
+
+            {authStep === 1 ? (
+              <form onSubmit={handleRequestOTP} className="space-y-6">
+                <div className="text-left space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Identidad Maestra</label>
+                  <input 
+                    type="text" 
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="Escribe tu nombre completo..."
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-bold text-lg"
+                    required
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full bg-white text-slate-950 font-black py-5 rounded-2xl shadow-xl hover:bg-blue-50 transition-all transform active:scale-95 disabled:opacity-50 text-sm tracking-widest uppercase"
+                >
+                  {loading ? 'SOLICITANDO LLAVE...' : 'SOLICITAR CÓDIGO'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOTP} className="space-y-6">
+                <div className="text-left space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Código de 6 Dígitos</label>
+                  <input 
+                    type="text" 
+                    maxLength="6"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    placeholder="000000"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-center text-white placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all font-mono text-3xl tracking-[0.5em] font-black"
+                    required
+                  />
+                </div>
+                <div className="flex space-x-3">
+                  <button 
+                    type="button"
+                    onClick={() => setAuthStep(1)}
+                    className="flex-1 bg-white/5 border border-white/10 text-slate-400 font-bold py-5 rounded-2xl hover:bg-white/10 transition-all text-xs uppercase"
+                  >
+                    Volver
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="flex-[2] bg-emerald-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-emerald-900/20 hover:bg-emerald-500 transition-all transform active:scale-95 disabled:opacity-50 text-sm tracking-widest uppercase"
+                  >
+                    {loading ? 'VERIFICANDO...' : 'ENTRAR'}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mt-6">Válido para 5 entradas / 24 horas</p>
+              </form>
+            )}
+          </div>
+          
+          <div className="mt-8 flex justify-center space-x-6 opacity-30">
+            <div className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" />
+            <div className="w-1.5 h-1.5 rounded-full bg-white animate-bounce delay-100" />
+            <div className="w-1.5 h-1.5 rounded-full bg-white animate-bounce delay-200" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   const handleReset = (tab) => {
     setActiveTab(tab);
@@ -326,15 +518,29 @@ const App = () => {
                       {serverHealth.database === 'CONNECTED' ? (
                         <span className="text-xs font-bold text-emerald-400 flex items-center"><div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-2 animate-pulse" /> Operativo</span>
                       ) : (
-                        <span className="text-xs font-bold text-red-400 flex items-center"><div className="w-1.5 h-1.5 bg-red-400 rounded-full mr-2" /> Error DB</span>
+                        <span className="text-xs font-bold text-rose-400 flex items-center"><div className="w-1.5 h-1.5 bg-rose-400 rounded-full mr-2" /> Error DB</span>
+                      )}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Servicio API</span>
+                      {serverHealth.status === 'UP' ? (
+                        <span className="text-xs font-bold text-emerald-400 flex items-center">
+                          <div className="w-1 h-1 bg-emerald-400 rounded-full mr-2" /> Operativo
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-rose-400">Detenido</span>
                       )}
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-slate-400">Conexión NAS</span>
-                      {serverHealth.status === 'UP' ? (
-                        <span className="text-xs font-bold text-emerald-400">Excelente</span>
+                      {window.location.hostname === NAS_IP ? (
+                        <span className="text-xs font-bold text-emerald-400 flex items-center">
+                           Excelente
+                        </span>
                       ) : (
-                        <span className="text-xs font-bold text-red-400">Sin Conexión</span>
+                        <span className="text-xs font-bold text-rose-400 flex items-center">
+                          Local (Mac)
+                        </span>
                       )}
                     </div>
                     <div className="pt-4 border-t border-slate-800">
@@ -418,7 +624,7 @@ const App = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Google Section */}
                 <form onSubmit={async (e) => {
                   e.preventDefault();
@@ -466,6 +672,49 @@ const App = () => {
                   <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
                   <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
                 </form>
+
+                {/* Pushover Section */}
+                <div className="space-y-4 p-6 bg-emerald-50 rounded-3xl border border-emerald-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                      <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">Pushover Alertas</span>
+                    </div>
+                    {serverHealth.pushover && (
+                      <span className="text-[9px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-md animate-pulse">BLINDADO</span>
+                    )}
+                  </div>
+                  
+                  {serverHealth.pushover ? (
+                    <div className="py-4 text-center">
+                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-emerald-100">
+                        <ShieldCheck className="text-emerald-600" size={24} />
+                      </div>
+                      <p className="text-xs font-bold text-emerald-800">Tus credenciales están fijas y seguras en el archivo .env del servidor.</p>
+                      <button 
+                        onClick={async () => {
+                          const res = await fetch(`${API_BASE}/test-pushover`);
+                          if(res.ok) alert('¡Revisa tu móvil! Alerta enviada.');
+                        }}
+                        className="mt-6 w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs hover:bg-emerald-700 transition-all flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/10"
+                      >
+                        <Zap size={14} />
+                        <span>Probar Notificación</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      const data = { provider: 'PUSHOVER', clientId: e.target.ukey.value, clientSecret: e.target.atoken.value };
+                      await fetch(`${API_BASE}/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                      alert('Configuración de Pushover guardada');
+                    }} className="space-y-4">
+                      <input name="ukey" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="User Key" />
+                      <input name="atoken" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="API Token" />
+                      <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs hover:bg-emerald-700 transition-all">Guardar Alertas</button>
+                    </form>
+                  )}
+                </div>
               </div>
 
               <div className="mt-8 p-6 bg-blue-50 rounded-3xl border border-blue-100 flex items-start space-x-4">

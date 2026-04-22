@@ -57,6 +57,7 @@ enum Provider {
   GMAIL
   OUTLOOK
   YAHOO
+  PUSHOVER
 }
 
 // 4. LOGS DE ENVÍO (Historial y Auditoría)
