@@ -24,9 +24,11 @@ import {
 } from 'lucide-react';
 
 const NAS_IP = '192.168.68.208';
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? `http://127.0.0.1:3001/api/admin` 
-  : `http://${window.location.hostname}:3001/api/admin`;
+const API_BASE = window.location.hostname.includes('rosariogroupllc.com')
+  ? 'https://mail-api.rosariogroupllc.com/api/admin'
+  : (window.location.hostname === '192.168.68.208' 
+      ? 'http://192.168.68.208:3001/api/admin' 
+      : 'http://localhost:3001/api/admin');
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
