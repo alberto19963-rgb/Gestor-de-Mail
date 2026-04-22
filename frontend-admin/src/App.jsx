@@ -71,6 +71,22 @@ const App = () => {
   const [companies, setCompanies] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [serverHealth, setServerHealth] = useState({ status: 'LOADING', database: 'LOADING' });
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch(`http://${window.location.hostname}:3000/api/health`);
+        const data = await res.json();
+        setServerHealth(data);
+      } catch (e) {
+        setServerHealth({ status: 'DOWN', database: 'ERROR' });
+      }
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000); 
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     fetchData();
