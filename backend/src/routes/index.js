@@ -392,6 +392,30 @@ router.get('/api/external/status/:email', async (req, res) => {
   }
 });
 
+router.post('/api/portal/login', async (req, res) => {
+  const { email, accessKey } = req.body;
+  try {
+    const account = await prisma.emailAccount.findFirst({
+      where: { 
+        email, 
+        auditAccessKey: accessKey 
+      },
+      include: {
+        logs: {
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        }
+      }
+    });
+
+    if (!account) return res.status(401).json({ error: 'Credenciales inválidas' });
+    
+    res.json({ logs: account.logs });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/api/track/:trackingId', trackOpening);
 
 module.exports = router;
