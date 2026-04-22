@@ -102,6 +102,17 @@ router.get('/api/admin/logs', async (req, res) => {
   }
 });
 
+// --- MONITOREO ---
+router.get('/api/health', async (req, res) => {
+  try {
+    // Verificamos conexión real con DB
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'UP', database: 'CONNECTED', timestamp: new Date() });
+  } catch (error) {
+    res.status(500).json({ status: 'DOWN', database: 'ERROR', message: error.message });
+  }
+});
+
 // --- API CONFIGURACIÓN (LLAVES MAESTRAS) ---
 
 // Obtener todas las configuraciones

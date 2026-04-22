@@ -307,11 +307,23 @@ const App = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-slate-400">Motor de Colas</span>
-                      <span className="text-xs font-bold text-emerald-400 flex items-center"><div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-2 animate-pulse" /> Operativo</span>
+                      {serverHealth.database === 'CONNECTED' ? (
+                        <span className="text-xs font-bold text-emerald-400 flex items-center"><div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-2 animate-pulse" /> Operativo</span>
+                      ) : (
+                        <span className="text-xs font-bold text-red-400 flex items-center"><div className="w-1.5 h-1.5 bg-red-400 rounded-full mr-2" /> Error DB</span>
+                      )}
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-slate-400">Conexión NAS</span>
-                      <span className="text-xs font-bold text-emerald-400">Excelente</span>
+                      {serverHealth.status === 'UP' ? (
+                        <span className="text-xs font-bold text-emerald-400">Excelente</span>
+                      ) : (
+                        <span className="text-xs font-bold text-red-400">Sin Conexión</span>
+                      )}
+                    </div>
+                    <div className="pt-4 border-t border-slate-800">
+                      <p className="text-[9px] text-slate-500 font-bold uppercase">Última Verificación</p>
+                      <p className="text-[10px] text-slate-400">{new Date().toLocaleTimeString()}</p>
                     </div>
                   </div>
                 </div>
@@ -380,7 +392,7 @@ const App = () => {
         )
         /* VISTA: CONFIGURACIÓN */
         : (
-          <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+          <div className="max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
               <div className="flex items-center space-x-3 mb-8">
                 <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center"><Zap size={20} /></div>
@@ -390,7 +402,7 @@ const App = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Google Section */}
                 <form onSubmit={async (e) => {
                   e.preventDefault();
@@ -400,11 +412,11 @@ const App = () => {
                 }} className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
                   <div className="flex items-center space-x-2 mb-2">
                     <div className="w-2 h-2 bg-red-500 rounded-full" />
-                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Google Cloud (Gmail)</span>
+                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Google Cloud</span>
                   </div>
-                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm shadow-sm" placeholder="Client ID" />
-                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm shadow-sm" placeholder="Client Secret" />
-                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar Google</button>
+                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client ID" />
+                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
+                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
                 </form>
 
                 {/* Microsoft Section */}
@@ -416,11 +428,27 @@ const App = () => {
                 }} className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
                   <div className="flex items-center space-x-2 mb-2">
                     <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Microsoft Azure (Outlook)</span>
+                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Microsoft Azure</span>
                   </div>
-                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm shadow-sm" placeholder="Application ID" />
-                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm shadow-sm" placeholder="Client Secret" />
-                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar Microsoft</button>
+                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Application ID" />
+                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
+                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
+                </form>
+
+                {/* Yahoo Section */}
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const data = { provider: 'YAHOO', clientId: e.target.cid.value, clientSecret: e.target.cs.value };
+                  await fetch(`${API_BASE}/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                  alert('Configuración de Yahoo guardada');
+                }} className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full" />
+                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Yahoo Developer</span>
+                  </div>
+                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client ID" />
+                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
+                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
                 </form>
               </div>
 
@@ -433,7 +461,7 @@ const App = () => {
               </div>
             </div>
           </div>
-        )}
+        )}}
 
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={
           modalType === 'api' ? 'Documentación API' : 
