@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: mail-manager-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-mail_manager}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: mail-manager-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-mail_manager}?schema=public
+      PORT: 3000
+    depends_on:
+      - db
+
+  frontend-admin:
+    build: ./frontend-admin
+    container_name: mail-manager-admin
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+  frontend-portal:
+    build: ./frontend-portal
+    container_name: mail-manager-portal
+    restart: always
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

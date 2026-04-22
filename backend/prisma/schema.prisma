@@ -1,0 +1,93 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 1. PROGRAMAS (Plataformas externas como 'Admin de Empresas')
+model Platform {
+  id            String    @id @default(uuid())
+  name          String
+  url           String?   // URL del software para validaciones
+  apiKey        String    @unique @default(uuid())
+  webhookSecret String    @default(uuid()) // Para validar que el MailEngine es quien envía datos
+  status        String    @default("ACTIVE") // ACTIVE, PENDING_VERIFICATION
+  companies     Company[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// 2. EMPRESAS (Clientes dentro de un programa)
+model Company {
+  id           String         @id @default(uuid())
+  name         String
+  rnc          String?        // Identificación fiscal
+  country      String?        @default("República Dominicana")
+  clientApiKey String         @unique @default(dbgenerated("concat('cli_', replace(gen_random_uuid()::text, '-', ''))"))
+  platform     Platform       @relation(fields: [platformId], references: [id])
+  platformId   String
+  accounts     EmailAccount[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+// 3. CUENTAS DE CORREO (Vinculadas a cada empresa)
+model EmailAccount {
+  id               String      @id @default(uuid())
+  email            String      @unique
+  provider         Provider
+  accessToken      String
+  refreshToken     String
+  tokenExpiresAt   DateTime
+  auditAccessKey   String      @default(dbgenerated("concat('pass_', split_part(email, '@', 1))")) // Clave para el Portal de Auditoría
+  company          Company     @relation(fields: [companyId], references: [id])
+  companyId        String
+  sentEmails       SentEmail[]
+  status           String      @default("ACTIVE") // ACTIVE, EXPIRED, ERROR
+  lastErrorMessage String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+enum Provider {
+  GMAIL
+  OUTLOOK
+  YAHOO
+}
+
+// 4. LOGS DE ENVÍO (Historial y Auditoría)
+model SentEmail {
+  id           String        @id @default(uuid())
+  account      EmailAccount  @relation(fields: [accountId], references: [id])
+  accountId    String
+  recipient    String
+  subject      String
+  bodyHtml     String
+  trackingId   String        @unique @default(uuid())
+  status       String        @default("SENT") // SENT, OPENED, BOUNCED, ERROR
+  errorMessage String?       // Para poder dar detalles en el botón de reenvío
+  sentAt       DateTime      @default(now())
+  trackingLogs TrackingLog[]
+}
+
+model TrackingLog {
+  id          String    @id @default(uuid())
+  sentEmail   SentEmail @relation(fields: [sentEmailId], references: [id])
+  sentEmailId String
+  openedAt    DateTime  @default(now())
+  ipAddress   String?
+  userAgent   String?
+}
+
+// 5. CONFIGURACIÓN GLOBAL (Llaves maestras de Google/Microsoft)
+model AppSetting {
+  id           String   @id @default(uuid())
+  provider     Provider @unique
+  clientId     String
+  clientSecret String
+  updatedAt    DateTime @updatedAt
+}
+
