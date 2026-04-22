@@ -27,7 +27,7 @@ model Company {
   name         String
   rnc          String?        // Identificación fiscal
   country      String?        @default("República Dominicana")
-  clientApiKey String         @unique @default(dbgenerated("concat('cli_', replace(gen_random_uuid()::text, '-', ''))"))
+  clientApiKey String         @unique // Generado por el backend
   platform     Platform       @relation(fields: [platformId], references: [id])
   platformId   String
   accounts     EmailAccount[]
@@ -43,7 +43,7 @@ model EmailAccount {
   accessToken      String
   refreshToken     String
   tokenExpiresAt   DateTime
-  auditAccessKey   String      @default(dbgenerated("concat('pass_', split_part(email, '@', 1))")) // Clave para el Portal de Auditoría
+  auditAccessKey   String      // Generado por el backend
   company          Company     @relation(fields: [companyId], references: [id])
   companyId        String
   sentEmails       SentEmail[]

@@ -45,10 +45,28 @@ router.post('/api/admin/platforms', async (req, res) => {
       data: { 
         name, 
         callbackUrl,
-        apiKey: `pk_${Math.random().toString(36).substring(2, 10)}`
+        apiKey: `pk_${Math.random().toString(36).substring(2, 20)}`
       }
     });
     res.json(platform);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Crear Empresa (NUEVO ENDPOINT COMPLETO)
+router.post('/api/admin/companies', async (req, res) => {
+  const { name, platformId, rnc } = req.body;
+  try {
+    const company = await prisma.company.create({
+      data: { 
+        name, 
+        platformId, 
+        rnc,
+        clientApiKey: `cli_${Math.random().toString(36).substring(2, 15)}`
+      }
+    });
+    res.json(company);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -60,7 +78,7 @@ router.get('/api/admin/companies', async (req, res) => {
   try {
     const companies = await prisma.company.findMany({
       where: platformId ? { platformId } : {},
-      include: { platform: true, _count: { select: { accounts: true } } }
+      include: { platform: true, _count: { select: { accounts: true } }, accounts: true }
     });
     res.json(companies);
   } catch (error) {
