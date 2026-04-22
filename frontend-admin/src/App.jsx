@@ -639,121 +639,80 @@ const App = () => {
         /* VISTA: CONFIGURACIÓN */
         : (
           <div className="max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
-            <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
-              <div className="flex items-center space-x-3 mb-8">
-                <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center"><Zap size={20} /></div>
+            <div className="bg-white border border-slate-100 rounded-[40px] p-8 shadow-sm">
+              <div className="flex items-center space-x-4 mb-8">
+                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+                  <Zap size={24} />
+                </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-lg">Credenciales Maestras</h4>
-                  <p className="text-slate-500 text-sm">Configura las llaves principales para cada proveedor de correo.</p>
+                  <h3 className="text-xl font-black text-slate-900">Configuración Maestras</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Motor optimizado para Google Cloud</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Google Section */}
-                <form onSubmit={async (e) => {
-                  e.preventDefault();
-                  const data = { provider: 'GMAIL', clientId: e.target.cid.value, clientSecret: e.target.cs.value };
-                  await fetch(`${API_BASE}/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-                  alert('Configuración de Google guardada');
-                }} className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="w-2 h-2 bg-red-500 rounded-full" />
-                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Google Cloud</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Google Cloud Card */}
+                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-8 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Mail size={80} />
                   </div>
-                  <input name="cid" type="text" defaultValue={masterSettings.GMAIL.clientId || ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client ID" />
-                  <input name="cs" type="password" title="password" defaultValue={masterSettings.GMAIL.clientSecret ? '********' : ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
-                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
-                </form>
-
-                {/* Microsoft Section */}
-                <form onSubmit={async (e) => {
-                  e.preventDefault();
-                  const data = { provider: 'OUTLOOK', clientId: e.target.cid.value, clientSecret: e.target.cs.value };
-                  await fetch(`${API_BASE}/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-                  alert('Configuración de Microsoft guardada');
-                }} className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Microsoft Azure</span>
-                  </div>
-                  <input name="cid" type="text" defaultValue={masterSettings.OUTLOOK.clientId || ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Application ID" />
-                  <input name="cs" type="password" title="password" defaultValue={masterSettings.OUTLOOK.clientSecret ? '********' : ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
-                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
-                </form>
-
-                {/* Yahoo Section */}
-                <form onSubmit={async (e) => {
-                  e.preventDefault();
-                  const data = { provider: 'YAHOO', clientId: e.target.cid.value, clientSecret: e.target.cs.value };
-                  await fetch(`${API_BASE}/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-                  alert('Configuración de Yahoo guardada');
-                }} className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full" />
-                    <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Yahoo Developer</span>
-                  </div>
-                  <input name="cid" type="text" defaultValue={masterSettings.YAHOO.clientId || ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client ID" />
-                  <input name="cs" type="password" title="password" defaultValue={masterSettings.YAHOO.clientSecret ? '********' : ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
-                  <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
-                </form>
-
-                {/* Pushover Section */}
-                <div className="space-y-4 p-6 bg-emerald-50 rounded-3xl border border-emerald-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                      <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">Pushover Alertas</span>
-                    </div>
-                    {serverHealth.pushover && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* GOOGLE CLOUD */}
-                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 relative overflow-hidden group">
                   <div className="flex items-center space-x-3 mb-6">
-                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                    <h3 className="font-bold text-slate-700 uppercase tracking-wider text-xs">Google Cloud Platform</h3>
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Google Cloud Platform</span>
                   </div>
-                  
                   <div className="space-y-4">
-                    <div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client ID</label>
                       <input 
                         type="text" 
-                        placeholder="Google Client ID"
+                        placeholder="ID de cliente de Google"
                         value={settings.googleClientId || ''}
                         onChange={(e) => setSettings({...settings, googleClientId: e.target.value})}
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                        className="w-full px-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all shadow-sm"
                       />
                     </div>
-                    <div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client Secret</label>
                       <input 
                         type="password" 
-                        placeholder="Google Client Secret"
+                        placeholder="Secreto de cliente"
                         value={settings.googleClientSecret || ''}
                         onChange={(e) => setSettings({...settings, googleClientSecret: e.target.value})}
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                        className="w-full px-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all shadow-sm"
                       />
                     </div>
                     <button 
                       onClick={() => handleSaveSettings('google')}
-                      className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-all active:scale-95"
+                      className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-[0.98] shadow-lg shadow-slate-900/10"
                     >
                       Guardar Configuración
                     </button>
                   </div>
                 </div>
 
-                {/* PUSHOVER ALERTS */}
-                <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                  <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase">Blindado</div>
-                  <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center text-emerald-500 mb-4">
-                    <ShieldCheck size={32} />
+                {/* Pushover Card */}
+                <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-8 flex flex-col justify-between relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <ShieldCheck size={80} />
                   </div>
-                  <h3 className="font-bold text-emerald-900 text-sm mb-2">Pushover Alertas</h3>
-                  <p className="text-xs text-emerald-700 mb-6 leading-relaxed">
-                    Tus credenciales de notificaciones están configuradas de forma segura en el servidor.
-                  </p>
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Notificaciones</span>
+                      </div>
+                      <span className="text-[9px] font-black bg-emerald-500 text-white px-2 py-0.5 rounded-md">BLINDADO</span>
+                    </div>
+                    <div className="mb-8">
+                      <h4 className="text-lg font-black text-emerald-900 mb-2">Pushover Alertas</h4>
+                      <p className="text-xs text-emerald-700 leading-relaxed font-medium">
+                        Tus credenciales de notificaciones están configuradas de forma segura en el servidor. El sistema te avisará por móvil de cada envío.
+                      </p>
+                    </div>
+                  </div>
                   <button 
                     onClick={handleTestNotification}
-                    className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all"
+                    className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-[0.98] shadow-lg shadow-emerald-500/10"
                   >
                     Probar Notificación
                   </button>
@@ -764,7 +723,7 @@ const App = () => {
                 <AlertCircle className="text-blue-600 mt-1" size={20} />
                 <div className="text-xs text-blue-700 leading-relaxed font-medium">
                   <p className="font-bold mb-1">Información de Seguridad:</p>
-                  Estas credenciales se utilizan para permitir que tus clientes vinculen sus cuentas vía OAuth2. Asegúrate de configurar la <span className="underline">Redirect URI</span> en tus paneles de desarrollador.
+                  Estas credenciales se utilizan para permitir que tus clientes vinculen sus cuentas vía OAuth2. Asegúrate de configurar la <span className="underline">Redirect URI</span> en tu panel de Google Cloud.
                 </div>
               </div>
             </div>
