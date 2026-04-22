@@ -10,9 +10,9 @@ const prisma = require('../config/db');
 // Estadísticas generales
 router.get('/api/admin/stats', async (req, res) => {
   try {
-    const totalMails = await prisma.emailLog.count();
-    const successMails = await prisma.emailLog.count({ where: { status: 'SENT' } });
-    const errorMails = await prisma.emailLog.count({ where: { status: { in: ['ERROR', 'BOUNCED'] } } });
+    const totalMails = await prisma.sentEmail.count();
+    const successMails = await prisma.sentEmail.count({ where: { status: 'SENT' } });
+    const errorMails = await prisma.sentEmail.count({ where: { status: { in: ['ERROR', 'BOUNCED'] } } });
     
     res.json({
       total: totalMails,
@@ -89,9 +89,9 @@ router.get('/api/admin/companies', async (req, res) => {
 // Listar Logs Recientes
 router.get('/api/admin/logs', async (req, res) => {
   try {
-    const logs = await prisma.emailLog.findMany({
+    const logs = await prisma.sentEmail.findMany({
       take: 20,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { sentAt: 'desc' },
       include: { 
         account: { include: { company: { include: { platform: true } } } } 
       }
@@ -115,9 +115,9 @@ router.post('/api/portal/login', async (req, res) => {
     
     if (!account) return res.status(401).json({ error: 'Credenciales inválidas' });
     
-    const logs = await prisma.emailLog.findMany({
+    const logs = await prisma.sentEmail.findMany({
       where: { accountId: account.id },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { sentAt: 'desc' }
     });
     
     res.json({ account, logs });
