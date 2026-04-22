@@ -461,7 +461,7 @@ const App = () => {
               </div>
             </div>
           </div>
-        )}}
+        )}
 
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={
           modalType === 'api' ? 'Documentación API' : 
