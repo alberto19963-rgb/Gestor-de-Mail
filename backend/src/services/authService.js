@@ -15,7 +15,7 @@ const getGoogleAuthUrl = async (userId) => {
   let redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
   if (!clientId || !clientSecret) {
-    const settings = await prisma.appSetting.findUnique({ where: { provider: 'GOOGLE' } });
+    const settings = await prisma.appSetting.findUnique({ where: { provider: 'GMAIL' } });
     if (settings) {
       clientId = settings.clientId;
       clientSecret = settings.clientSecret;
