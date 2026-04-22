@@ -401,8 +401,8 @@ router.post('/api/portal/login', async (req, res) => {
         auditAccessKey: accessKey 
       },
       include: {
-        logs: {
-          orderBy: { createdAt: 'desc' },
+        sentEmails: {
+          orderBy: { sentAt: 'desc' },
           take: 50
         }
       }
@@ -410,7 +410,7 @@ router.post('/api/portal/login', async (req, res) => {
 
     if (!account) return res.status(401).json({ error: 'Credenciales inválidas' });
     
-    res.json({ logs: account.logs });
+    res.json({ logs: account.sentEmails });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
