@@ -31,7 +31,7 @@ services:
     container_name: mail-manager-admin
     restart: always
     ports:
-      - "8082:80"
+      - "9080:80"
     depends_on:
       - backend
 
@@ -40,7 +40,7 @@ services:
     container_name: mail-manager-portal
     restart: always
     ports:
-      - "8081:80"
+      - "9081:80"
     depends_on:
       - backend
 
