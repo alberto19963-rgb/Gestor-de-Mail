@@ -705,39 +705,58 @@ const App = () => {
                       <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">Pushover Alertas</span>
                     </div>
                     {serverHealth.pushover && (
-                      <span className="text-[9px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-md animate-pulse">BLINDADO</span>
-                    )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* GOOGLE CLOUD */}
+                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 relative overflow-hidden group">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                    <h3 className="font-bold text-slate-700 uppercase tracking-wider text-xs">Google Cloud Platform</h3>
                   </div>
                   
-                  {serverHealth.pushover ? (
-                    <div className="py-4 text-center">
-                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-emerald-100">
-                        <ShieldCheck className="text-emerald-600" size={24} />
-                      </div>
-                      <p className="text-xs font-bold text-emerald-800">Tus credenciales están fijas y seguras en el archivo .env del servidor.</p>
-                      <button 
-                        onClick={async () => {
-                          const res = await fetch(`${API_BASE}/test-pushover`);
-                          if(res.ok) alert('¡Revisa tu móvil! Alerta enviada.');
-                        }}
-                        className="mt-6 w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs hover:bg-emerald-700 transition-all flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/10"
-                      >
-                        <Zap size={14} />
-                        <span>Probar Notificación</span>
-                      </button>
+                  <div className="space-y-4">
+                    <div>
+                      <input 
+                        type="text" 
+                        placeholder="Google Client ID"
+                        value={settings.googleClientId || ''}
+                        onChange={(e) => setSettings({...settings, googleClientId: e.target.value})}
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                      />
                     </div>
-                  ) : (
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const data = { provider: 'PUSHOVER', clientId: e.target.ukey.value, clientSecret: e.target.atoken.value };
-                      await fetch(`${API_BASE}/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-                      alert('Configuración de Pushover guardada');
-                    }} className="space-y-4">
-                      <input name="ukey" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="User Key" />
-                      <input name="atoken" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="API Token" />
-                      <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs hover:bg-emerald-700 transition-all">Guardar Alertas</button>
-                    </form>
-                  )}
+                    <div>
+                      <input 
+                        type="password" 
+                        placeholder="Google Client Secret"
+                        value={settings.googleClientSecret || ''}
+                        onChange={(e) => setSettings({...settings, googleClientSecret: e.target.value})}
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => handleSaveSettings('google')}
+                      className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-all active:scale-95"
+                    >
+                      Guardar Configuración
+                    </button>
+                  </div>
+                </div>
+
+                {/* PUSHOVER ALERTS */}
+                <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                  <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase">Blindado</div>
+                  <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center text-emerald-500 mb-4">
+                    <ShieldCheck size={32} />
+                  </div>
+                  <h3 className="font-bold text-emerald-900 text-sm mb-2">Pushover Alertas</h3>
+                  <p className="text-xs text-emerald-700 mb-6 leading-relaxed">
+                    Tus credenciales de notificaciones están configuradas de forma segura en el servidor.
+                  </p>
+                  <button 
+                    onClick={handleTestNotification}
+                    className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all"
+                  >
+                    Probar Notificación
+                  </button>
                 </div>
               </div>
 
@@ -776,6 +795,38 @@ const App = () => {
               </div>
               <button type="submit" className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl">Crear Registro</button>
             </form>
+          ) : modalType === 'link' ? (
+            <div className="space-y-6">
+              <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start space-x-3">
+                <div className="bg-white p-2 rounded-xl text-red-500 shadow-sm">
+                  <Mail size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-red-900">Vinculación de Gmail</h4>
+                  <p className="text-xs text-red-700 leading-relaxed">
+                    Vas a vincular la cuenta de <strong>{selectedCompany?.name}</strong> usando Google OAuth2.
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => window.location.href = `${API_BASE.replace('/admin', '')}/auth/google?companyId=${selectedCompany.id}`}
+                className="w-full flex items-center justify-between p-5 bg-white border-2 border-slate-100 rounded-2xl hover:border-red-500 hover:bg-red-50 transition-all group"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-xl font-black">G</div>
+                  <div className="text-left">
+                    <span className="block font-bold text-slate-700">Continuar con Google</span>
+                    <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-widest">Seguro y Oficial</span>
+                  </div>
+                </div>
+                <ChevronRight size={20} className="text-slate-300 group-hover:text-red-500 group-hover:translate-x-1 transition-all" />
+              </button>
+
+              <div className="text-center">
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Solo se permite vinculación vía Google Cloud</p>
+              </div>
+            </div>
           ) : (
             <div className="text-slate-500 text-center py-4">Funcionalidad en desarrollo...</div>
           )}
