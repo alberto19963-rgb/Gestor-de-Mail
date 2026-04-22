@@ -19,7 +19,8 @@ const getGoogleAuthUrl = async (userId) => {
     if (settings) {
       clientId = settings.clientId;
       clientSecret = settings.clientSecret;
-      redirectUri = settings.callbackUrl;
+      // Usamos la URL oficial de tu túnel Cloudflare
+      redirectUri = 'https://mail-api.rosariogroupllc.com/auth/google/callback';
     }
   }
 
