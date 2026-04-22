@@ -332,7 +332,7 @@ const App = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {logs.map((log, i) => (
+                  {(logs || []).map((log, i) => (
                     <tr key={i} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 font-bold text-slate-700 text-sm">{log.recipient}</td>
                       <td className="px-6 py-4 text-xs text-slate-500">
@@ -363,7 +363,7 @@ const App = () => {
                 <tr className="bg-slate-50 text-slate-400 text-[10px] uppercase font-bold tracking-widest"><th className="px-6 py-5">Software</th><th className="px-6 py-5">API Key</th><th className="px-6 py-5 text-center">Empresas</th><th className="px-6 py-5 text-right">Acciones</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {platforms.map((item, i) => (
+                {(platforms || []).map((item, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-5 font-bold text-slate-800">{item.name}</td>
                     <td className="px-6 py-5"><code className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-mono border border-blue-100">{item.apiKey}</code></td>
