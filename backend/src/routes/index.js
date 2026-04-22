@@ -144,11 +144,12 @@ router.post('/api/admin/request-otp', async (req, res) => {
 
   const now = new Date();
   
-  // Reutilizar código si sigue vivo
+  // Reutilizar código si sigue vivo (SIN mandar nuevo mensaje de Pushover)
   if (currentOTP.code && currentOTP.uses < currentOTP.maxUses && currentOTP.expiresAt > now) {
-    const message = `Tu llave sigue activa: ${currentOTP.code}\nUso: ${currentOTP.uses}/${currentOTP.maxUses}\nExpira en 24h.`;
-    await notificationService.sendAdminAlert('Llave Activa', message, 1);
-    return res.json({ message: 'Código activo reenviado' });
+    return res.json({ 
+      message: 'Tu llave sigue activa. Usa el último código recibido.',
+      reused: true 
+    });
   }
 
   // Generar nuevo si no hay o murió

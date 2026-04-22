@@ -111,8 +111,11 @@ const App = () => {
       if (res.ok) {
         console.log('✅ Código solicitado con éxito');
         setAuthStep(2);
-        setAuthMessage({ text: '¡Código enviado! Revisa tu Pushover 📱', type: 'success' });
-        alert('¡Código enviado! Revisa tu celular 📱');
+        const msg = data.reused 
+          ? '🔑 Tu llave sigue activa. Usa el último código enviado.' 
+          : '¡Código enviado! Revisa tu Pushover 📱';
+        setAuthMessage({ text: msg, type: 'success' });
+        alert(msg);
       } else {
         console.error('❌ Error del servidor:', data.error);
         setAuthMessage({ text: data.error, type: 'error' });

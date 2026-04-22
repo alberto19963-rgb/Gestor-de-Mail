@@ -19,10 +19,12 @@ Sigue estos pasos para instalar tu Gestor de Mail en el NAS:
 5. El sistema detectará los 4 servicios automáticamente.
 6. Dale a **"Next"** y luego a **"Done"**. ¡Docker empezará a descargar las imágenes y construir los frontends!
 
-## 4. Acceso
-Una vez termine (tardará unos minutos la primera vez):
-- **Panel de Admin**: `http://IP_DE_TU_NAS:8080`
-- **Portal de Usuario**: `http://IP_DE_TU_NAS:8081`
+## 4. Acceso Terminal (Opción Recomendada)
+Si prefieres usar la terminal como haces siempre:
+```bash
+git pull origin main
+sudo docker compose up --build -d
+```
 
 ---
 
