@@ -19,10 +19,10 @@ services:
     container_name: mail-manager-backend
     restart: always
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-mail_manager}?schema=public
-      PORT: 3000
+      PORT: 3001
     depends_on:
       - db
 
