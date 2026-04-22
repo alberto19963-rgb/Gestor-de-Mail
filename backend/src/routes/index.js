@@ -192,6 +192,10 @@ router.post('/api/admin/request-otp', async (req, res) => {
 
   saveOTP(); // Guardar en disco
 
+  console.log('-------------------------------------------');
+  console.log(`🔐 NUEVO CÓDIGO GENERADO: ${newCode}`);
+  console.log('-------------------------------------------');
+
   const alertMsg = `🔐 Nueva Llave Maestra: ${newCode}\n\nUso permitido: 5 veces.\nVigencia: 24 horas.`;
   await notificationService.sendAdminAlert('Acceso de Seguridad', alertMsg, 1);
 
