@@ -2,51 +2,115 @@ const express = require('express');
 const router = express.Router();
 const { sendEmail } = require('../services/emailService');
 const { trackOpening } = require('../controllers/trackingController');
-const { getGoogleAuthUrl, getGoogleTokens, getMicrosoftAuthUrl, getMicrosoftTokens } = require('../services/authService');
+const { getGoogleAuthUrl, getGoogleTokens } = require('../services/authService');
 const prisma = require('../config/db');
 
-// --- RUTAS DE AUTH OAUTH2 ---
+// --- API ADMINISTRATIVA (DASHBOARD) ---
 
-// Google
-router.get('/auth/google/:userId', (req, res) => {
-  const url = getGoogleAuthUrl(req.params.userId);
-  res.redirect(url);
-});
-
-router.get('/api/auth/google/callback', async (req, res) => {
-  const { code, state: userId } = req.query;
+// Estadísticas generales
+router.get('/api/admin/stats', async (req, res) => {
   try {
-    const tokens = await getGoogleTokens(code);
+    const totalMails = await prisma.emailLog.count();
+    const successMails = await prisma.emailLog.count({ where: { status: 'SENT' } });
+    const errorMails = await prisma.emailLog.count({ where: { status: { in: ['ERROR', 'BOUNCED'] } } });
     
-    // Guardar o actualizar cuenta
-    await prisma.emailAccount.upsert({
-      where: { email: tokens.email || 'pending@gmail.com' }, // Deberíamos obtener el email del token
-      update: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        tokenExpiresAt: new Date(Date.now() + tokens.expiry_date),
-      },
-      create: {
-        email: 'placeholder@gmail.com', // Obtener via googleapis
-        provider: 'GMAIL',
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        tokenExpiresAt: new Date(Date.now() + tokens.expiry_date),
-        userId: userId,
-      }
+    res.json({
+      total: totalMails,
+      success: successMails,
+      errors: errorMails,
+      successRate: totalMails > 0 ? ((successMails / totalMails) * 100).toFixed(1) + '%' : '100%'
     });
-
-    res.send('Cuenta vinculada con éxito. Puedes cerrar esta ventana.');
   } catch (error) {
-    res.status(500).send('Error vinculando cuenta');
+    res.status(500).json({ error: error.message });
   }
 });
 
-// --- RUTA DE ENVÍO ---
+// Listar Programas
+router.get('/api/admin/platforms', async (req, res) => {
+  try {
+    const platforms = await prisma.platform.findMany({
+      include: { _count: { select: { companies: true } } }
+    });
+    res.json(platforms);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Crear Programa
+router.post('/api/admin/platforms', async (req, res) => {
+  const { name, callbackUrl } = req.body;
+  try {
+    const platform = await prisma.platform.create({
+      data: { 
+        name, 
+        callbackUrl,
+        apiKey: `pk_${Math.random().toString(36).substring(2, 10)}`
+      }
+    });
+    res.json(platform);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Listar Empresas
+router.get('/api/admin/companies', async (req, res) => {
+  const { platformId } = req.query;
+  try {
+    const companies = await prisma.company.findMany({
+      where: platformId ? { platformId } : {},
+      include: { platform: true, _count: { select: { accounts: true } } }
+    });
+    res.json(companies);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Listar Logs Recientes
+router.get('/api/admin/logs', async (req, res) => {
+  try {
+    const logs = await prisma.emailLog.findMany({
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+      include: { 
+        account: { include: { company: { include: { platform: true } } } } 
+      }
+    });
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- API PORTAL (USUARIO FINAL) ---
+
+// Login y Logs de un usuario
+router.post('/api/portal/login', async (req, res) => {
+  const { email, accessKey } = req.body;
+  try {
+    const account = await prisma.emailAccount.findFirst({
+      where: { email, auditAccessKey: accessKey },
+      include: { company: true }
+    });
+    
+    if (!account) return res.status(401).json({ error: 'Credenciales inválidas' });
+    
+    const logs = await prisma.emailLog.findMany({
+      where: { accountId: account.id },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json({ account, logs });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- RUTAS DE ENVÍO Y TRACKING ---
 router.post('/api/send', async (req, res) => {
   const { accountId, recipient, subject, bodyHtml, apiKey } = req.body;
-  
-  // Validar API Key de la plataforma
   const platform = await prisma.platform.findUnique({ where: { apiKey } });
   if (!platform) return res.status(401).json({ error: 'API Key inválida' });
 
@@ -58,7 +122,6 @@ router.post('/api/send', async (req, res) => {
   }
 });
 
-// --- RUTA DE TRACKING ---
 router.get('/api/track/:trackingId', trackOpening);
 
 module.exports = router;
