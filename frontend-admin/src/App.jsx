@@ -652,7 +652,13 @@ const App = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Google Cloud Card */}
-                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-8 relative overflow-hidden group">
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const data = { provider: 'GMAIL', clientId: e.target.cid.value, clientSecret: e.target.cs.value };
+                  await fetch(`${API_BASE}/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                  alert('Configuración de Google guardada');
+                  fetchData();
+                }} className="bg-slate-50 border border-slate-200 rounded-3xl p-8 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <Mail size={80} />
                   </div>
@@ -664,31 +670,31 @@ const App = () => {
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client ID</label>
                       <input 
+                        name="cid"
                         type="text" 
                         placeholder="ID de cliente de Google"
-                        value={settings.googleClientId || ''}
-                        onChange={(e) => setSettings({...settings, googleClientId: e.target.value})}
+                        defaultValue={masterSettings.GMAIL?.clientId || ''}
                         className="w-full px-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all shadow-sm"
                       />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client Secret</label>
                       <input 
+                        name="cs"
                         type="password" 
                         placeholder="Secreto de cliente"
-                        value={settings.googleClientSecret || ''}
-                        onChange={(e) => setSettings({...settings, googleClientSecret: e.target.value})}
+                        defaultValue={masterSettings.GMAIL?.clientSecret ? '********' : ''}
                         className="w-full px-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all shadow-sm"
                       />
                     </div>
                     <button 
-                      onClick={() => handleSaveSettings('google')}
+                      type="submit"
                       className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-[0.98] shadow-lg shadow-slate-900/10"
                     >
                       Guardar Configuración
                     </button>
                   </div>
-                </div>
+                </form>
 
                 {/* Pushover Card */}
                 <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-8 flex flex-col justify-between relative overflow-hidden group">
@@ -711,7 +717,10 @@ const App = () => {
                     </div>
                   </div>
                   <button 
-                    onClick={handleTestNotification}
+                    onClick={async () => {
+                      const res = await fetch(`${API_BASE}/test-pushover`);
+                      if(res.ok) alert('¡Revisa tu móvil! Alerta enviada.');
+                    }}
                     className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-[0.98] shadow-lg shadow-emerald-500/10"
                   >
                     Probar Notificación
