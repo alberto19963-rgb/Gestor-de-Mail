@@ -79,6 +79,7 @@ const App = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [serverHealth, setServerHealth] = useState({ status: 'LOADING', database: 'LOADING' });
+  const [masterSettings, setMasterSettings] = useState({ GMAIL: {}, OUTLOOK: {}, YAHOO: {} });
 
   const [authStep, setAuthStep] = useState(1); // 1: Nombre, 2: OTP
   const [userName, setUserName] = useState('');
@@ -192,22 +193,33 @@ const App = () => {
     if (!isAuthenticated) return;
     setLoading(true);
     try {
-      const [sRes, pRes, cRes, lRes] = await Promise.all([
+      const [sRes, pRes, cRes, lRes, setRes] = await Promise.all([
         fetch(`${API_BASE}/stats`),
         fetch(`${API_BASE}/platforms`),
         fetch(`${API_BASE}/companies`),
-        fetch(`${API_BASE}/logs`)
+        fetch(`${API_BASE}/logs`),
+        fetch(`${API_BASE}/settings`)
       ]);
       
       const statsData = await sRes.json();
       const platformsData = await pRes.json();
       const companiesData = await cRes.json();
       const logsData = await lRes.json();
+      const settingsData = await setRes.json();
 
       setStats(statsData.total ? statsData : { total: 0, success: 0, errors: 0, successRate: '0%' });
       setPlatforms(Array.isArray(platformsData) ? platformsData : []);
       setCompanies(Array.isArray(companiesData) ? companiesData : []);
       setLogs(Array.isArray(logsData) ? logsData : []);
+      
+      // Organizar settings por proveedor
+      const settingsMap = { GMAIL: {}, OUTLOOK: {}, YAHOO: {} };
+      if (Array.isArray(settingsData)) {
+        settingsData.forEach(s => {
+          settingsMap[s.provider] = s;
+        });
+      }
+      setMasterSettings(settingsMap);
 
     } catch (error) {
       setStats({ total: 0, success: 0, errors: 0, successRate: '0%' });
@@ -352,7 +364,10 @@ const App = () => {
         </nav>
 
         <div className="mt-auto pt-6 border-t border-slate-100">
-          <button className="flex items-center space-x-3 px-4 py-3 text-slate-500 hover:text-red-500 transition-colors w-full font-bold text-sm">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center space-x-3 px-4 py-3 text-slate-500 hover:text-red-500 transition-colors w-full font-bold text-sm"
+          >
             <LogOut size={18} />
             <span>Cerrar Sesión</span>
           </button>
@@ -641,8 +656,8 @@ const App = () => {
                     <div className="w-2 h-2 bg-red-500 rounded-full" />
                     <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Google Cloud</span>
                   </div>
-                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client ID" />
-                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
+                  <input name="cid" type="text" defaultValue={masterSettings.GMAIL.clientId || ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client ID" />
+                  <input name="cs" type="password" title="password" defaultValue={masterSettings.GMAIL.clientSecret ? '********' : ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
                   <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
                 </form>
 
@@ -657,8 +672,8 @@ const App = () => {
                     <div className="w-2 h-2 bg-blue-500 rounded-full" />
                     <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Microsoft Azure</span>
                   </div>
-                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Application ID" />
-                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
+                  <input name="cid" type="text" defaultValue={masterSettings.OUTLOOK.clientId || ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Application ID" />
+                  <input name="cs" type="password" title="password" defaultValue={masterSettings.OUTLOOK.clientSecret ? '********' : ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
                   <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
                 </form>
 
@@ -673,8 +688,8 @@ const App = () => {
                     <div className="w-2 h-2 bg-purple-500 rounded-full" />
                     <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Yahoo Developer</span>
                   </div>
-                  <input name="cid" type="text" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client ID" />
-                  <input name="cs" type="password" title="password" className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
+                  <input name="cid" type="text" defaultValue={masterSettings.YAHOO.clientId || ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client ID" />
+                  <input name="cs" type="password" title="password" defaultValue={masterSettings.YAHOO.clientSecret ? '********' : ''} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm" placeholder="Client Secret" />
                   <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl text-xs hover:bg-slate-800 transition-all">Guardar</button>
                 </form>
 
