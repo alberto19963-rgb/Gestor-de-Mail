@@ -13,7 +13,8 @@ import {
   ChevronRight,
   Calendar,
   X,
-  RotateCcw
+  RotateCcw,
+  Download
 } from 'lucide-react';
 
 const API_BASE = window.location.hostname.includes('rosariogroupllc.com')
@@ -188,7 +189,27 @@ const PortalApp = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center space-x-1 text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                        <Eye size={14} />
+                        <span className="text-xs font-black">{(mail.trackingLogs?.length || 0)}</span>
+                      </div>
+                      <span className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Aperturas</span>
+                    </div>
+                    {mail.attachments?.length > 0 && (
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center space-x-1 text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+                          <Download size={14} />
+                          <span className="text-xs font-black">
+                            {mail.attachments.reduce((acc, curr) => acc + (curr.downloadLogs?.length || 0), 0)}
+                          </span>
+                        </div>
+                        <span className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Descargas</span>
+                      </div>
+                    )}
+                  </div>
                   <div className="text-right hidden sm:block">
                     <p className="text-slate-900 font-black text-sm">{new Date(mail.createdAt).toLocaleDateString()}</p>
                     <p className={`text-[10px] font-bold uppercase tracking-widest ${mail.status === 'SENT' ? 'text-emerald-500' : 'text-red-500'}`}>
@@ -216,10 +237,45 @@ const PortalApp = () => {
               <h3 className="font-black text-xl text-slate-900 tracking-tight">Detalle del Envío</h3>
               <button onClick={() => setSelectedMail(null)} className="p-3 hover:bg-white rounded-full transition-all text-slate-400"><X size={24} /></button>
             </div>
-            <div className="p-10 space-y-6">
-              <p className="text-sm font-bold text-slate-500 italic">Asunto: {selectedMail.subject}</p>
-              <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 font-mono text-xs text-slate-600 overflow-auto max-h-60">
-                {selectedMail.bodyHtml || "Sin contenido HTML registrado."}
+            <div className="p-10 space-y-6 overflow-y-auto max-h-[70vh]">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Asunto del Correo</p>
+                <p className="text-lg font-bold text-slate-900 italic">{selectedMail.subject}</p>
+              </div>
+
+              {selectedMail.attachments?.length > 0 && (
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Adjuntos Inteligentes y Seguimiento</p>
+                  {selectedMail.attachments.map((file, idx) => (
+                    <div key={idx} className="bg-slate-50 border border-slate-200 p-5 rounded-[2rem] space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-white rounded-xl shadow-sm text-indigo-600"><Download size={20} /></div>
+                          <span className="font-bold text-slate-900">{file.name}</span>
+                        </div>
+                        <span className="bg-white px-3 py-1 rounded-full text-[10px] font-black text-slate-500 border border-slate-100">{file.downloadLogs?.length || 0} Descargas</span>
+                      </div>
+                      
+                      {file.downloadLogs?.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-slate-200/50">
+                          {file.downloadLogs.map((log, lidx) => (
+                            <div key={lidx} className="flex justify-between text-[9px] font-bold text-slate-400 bg-white/50 p-2 rounded-lg">
+                              <span>🕒 {new Date(log.downloadedAt).toLocaleString()}</span>
+                              <span>🌐 {log.ipAddress}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Contenido Enviado</p>
+                <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100 font-mono text-[10px] text-slate-500 overflow-auto max-h-60 leading-relaxed">
+                  {selectedMail.bodyHtml || "Sin contenido HTML registrado."}
+                </div>
               </div>
             </div>
           </div>

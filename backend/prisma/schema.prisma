@@ -62,17 +62,40 @@ enum Provider {
 
 // 4. LOGS DE ENVÍO (Historial y Auditoría)
 model SentEmail {
-  id           String        @id @default(uuid())
-  account      EmailAccount  @relation(fields: [accountId], references: [id])
+  id           String           @id @default(uuid())
+  account      EmailAccount     @relation(fields: [accountId], references: [id])
   accountId    String
   recipient    String
   subject      String
   bodyHtml     String
-  trackingId   String        @unique @default(uuid())
-  status       String        @default("SENT") // SENT, OPENED, BOUNCED, ERROR
-  errorMessage String?       // Para poder dar detalles en el botón de reenvío
-  sentAt       DateTime      @default(now())
+  trackingId   String           @unique @default(uuid())
+  status       String           @default("SENT") // SENT, OPENED, BOUNCED, ERROR
+  errorMessage String?          // Para poder dar detalles en el botón de reenvío
+  sentAt       DateTime         @default(now())
   trackingLogs TrackingLog[]
+  attachments  FileAttachment[]
+}
+
+model FileAttachment {
+  id           String        @id @default(uuid())
+  name         String
+  size         Int
+  mimeType     String
+  path         String
+  sentEmail    SentEmail     @relation(fields: [sentEmailId], references: [id], onDelete: Cascade)
+  sentEmailId  String
+  downloadLogs DownloadLog[]
+  expiresAt    DateTime
+  createdAt    DateTime      @default(now())
+}
+
+model DownloadLog {
+  id               String         @id @default(uuid())
+  attachment       FileAttachment @relation(fields: [fileAttachmentId], references: [id], onDelete: Cascade)
+  fileAttachmentId String
+  downloadedAt     DateTime       @default(now())
+  ipAddress        String?
+  userAgent        String?
 }
 
 model TrackingLog {

@@ -323,10 +323,46 @@ router.post('/api/send', async (req, res) => {
 
     if (!targetAccountId) return res.status(400).json({ error: 'Se requiere accountId o email' });
 
-    const result = await sendEmail(targetAccountId, recipient, subject, bodyHtml);
+    const { attachments } = req.body; // Array de { name, content, contentType }
+
+    const result = await sendEmail(targetAccountId, recipient, subject, bodyHtml, attachments);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// --- RUTA DE DESCARGA RASTREADA ---
+router.get('/api/download/:fileId', async (req, res) => {
+  const { fileId } = req.params;
+  try {
+    // 1. Buscar archivo en BD
+    const file = await prisma.fileAttachment.findUnique({
+      where: { id: fileId },
+      include: { sentEmail: true }
+    });
+
+    if (!file) return res.status(404).send('Archivo no encontrado o enlace expirado.');
+
+    // 2. Verificar expiración
+    if (new Date() > file.expiresAt) {
+      return res.status(410).send('Este enlace ha expirado (más de 15 días).');
+    }
+
+    // 3. Registrar descarga
+    await prisma.downloadLog.create({
+      data: {
+        fileAttachmentId: fileId,
+        ipAddress: req.ip || req.headers['x-forwarded-for'],
+        userAgent: req.headers['user-agent']
+      }
+    });
+
+    // 4. Servir archivo
+    res.download(file.path, file.name);
+
+  } catch (error) {
+    res.status(500).send('Error al descargar el archivo: ' + error.message);
   }
 });
 
@@ -336,6 +372,8 @@ router.get('/auth/google/callback', async (req, res) => {
   try {
     const { tokens } = await getGoogleTokens(code);
     const { companyId, email } = JSON.parse(state);
+
+    const isNew = !await prisma.emailAccount.findUnique({ where: { email } });
 
     const account = await prisma.emailAccount.upsert({
       where: { email },
@@ -358,9 +396,20 @@ router.get('/auth/google/callback', async (req, res) => {
     });
 
     res.send(`
-      <div style="font-family: sans-serif; text-align: center; padding: 50px;">
-        <h1 style="color: #10b981;">¡Cuenta Enlazada con Éxito!</h1>
-        <p>Ya puedes cerrar esta ventana y volver a la aplicación.</p>
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center; padding: 60px 20px; background-color: #f8fafc; min-h-screen;">
+        <div style="max-width: 400px; margin: 0 auto; background: white; padding: 40px; border-radius: 30px; shadow: 0 10px 25px -5px rgba(0,0,0,0.1);">
+          <div style="width: 70px; h-70px; background: #10b981; color: white; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 20px;">✓</div>
+          <h1 style="color: #0f172a; margin-bottom: 10px; font-weight: 800; letter-spacing: -1px;">¡Cuenta Enlazada!</h1>
+          <p style="color: #64748b; font-size: 14px; margin-bottom: 30px; line-height: 1.5;">Tu cuenta <b>${email}</b> ya está lista para enviar correos desde Multiservi.</p>
+          
+          <div style="background: #f1f5f9; padding: 20px; border-radius: 20px; margin-bottom: 30px;">
+            <p style="color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Tu Clave de Auditoría</p>
+            <code style="font-size: 18px; font-weight: 900; color: #2563eb; font-family: monospace;">${account.auditAccessKey}</code>
+          </div>
+
+          <a href="https://mail.rosariogroupllc.com" style="display: block; background: #0f172a; color: white; text-decoration: none; padding: 16px; border-radius: 15px; font-weight: 700; font-size: 14px; margin-bottom: 15px; transition: all 0.2s;">Ir al Portal de Auditoría</a>
+          <p style="color: #94a3b8; font-size: 12px;">Ya puedes cerrar esta ventana con seguridad.</p>
+        </div>
       </div>
     `);
   } catch (error) {
@@ -428,7 +477,15 @@ router.post('/api/portal/login', async (req, res) => {
       include: {
         sentEmails: {
           orderBy: { sentAt: 'desc' },
-          take: 50
+          take: 50,
+          include: {
+            attachments: {
+              include: {
+                downloadLogs: true
+              }
+            },
+            trackingLogs: true
+          }
         }
       }
     });
