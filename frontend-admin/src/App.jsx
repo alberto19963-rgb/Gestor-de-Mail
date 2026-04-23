@@ -20,7 +20,8 @@ import {
   ExternalLink,
   Key,
   Copy,
-  RotateCcw
+  RotateCcw,
+  Trash2
 } from 'lucide-react';
 
 const NAS_IP = '192.168.68.208';
@@ -228,6 +229,38 @@ const App = () => {
       setLogs([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeletePlatform = async (id) => {
+    if (!window.confirm('¿Estás seguro de eliminar este programa? Se borrarán sus llaves y acceso.')) return;
+    try {
+      const res = await fetch(`${API_BASE}/platforms/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        alert('Programa eliminado');
+        fetchData();
+      } else {
+        const error = await res.json();
+        alert(error.error || 'No se pudo eliminar');
+      }
+    } catch (e) {
+      alert('Error al conectar con el servidor');
+    }
+  };
+
+  const handleDeleteCompany = async (id) => {
+    if (!window.confirm('¿Estás seguro de eliminar esta empresa?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/companies/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        alert('Empresa eliminada');
+        fetchData();
+      } else {
+        const error = await res.json();
+        alert(error.error || 'No se pudo eliminar');
+      }
+    } catch (e) {
+      alert('Error al conectar con el servidor');
     }
   };
 
@@ -492,7 +525,10 @@ const App = () => {
                 </div>
                 <h4 className="font-bold text-xl text-slate-900">{company.name}</h4>
                 <p className="text-slate-500 text-sm mt-1 font-medium">{company._count?.accounts || 0} Usuarios vinculados</p>
-                <button onClick={() => setSelectedCompany(company)} className="w-full mt-6 py-3 border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all">Gestionar</button>
+                <div className="flex space-x-2 mt-6">
+                  <button onClick={() => setSelectedCompany(company)} className="flex-1 py-3 border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all">Gestionar</button>
+                  <button onClick={() => handleDeleteCompany(company.id)} className="p-3 text-red-500 bg-red-50 rounded-2xl hover:bg-red-100 transition-all" title="Eliminar Empresa"><Trash2 size={18} /></button>
+                </div>
               </div>
             ))}
           </div>
@@ -626,9 +662,10 @@ const App = () => {
                     <td className="px-6 py-5 font-bold text-slate-800">{item.name}</td>
                     <td className="px-6 py-5"><code className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-mono border border-blue-100">{item.apiKey}</code></td>
                     <td className="px-6 py-5 text-center font-bold text-slate-700">{item._count?.companies || 0}</td>
-                    <td className="px-6 py-5 text-right flex justify-end space-x-2">
+                    <td className="px-6 py-5 text-right flex justify-end items-center space-x-2">
                       <button onClick={() => { setModalType('api'); setIsModalOpen(true); }} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400"><Code size={18} /></button>
                       <button onClick={() => setSelectedProgram(item)} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition-all">Gestionar</button>
+                      <button onClick={() => handleDeletePlatform(item.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Eliminar Programa"><Trash2 size={18} /></button>
                     </td>
                   </tr>
                 ))}

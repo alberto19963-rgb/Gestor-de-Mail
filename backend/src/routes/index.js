@@ -130,6 +130,28 @@ router.get('/api/admin/logs', async (req, res) => {
   }
 });
 
+// Eliminar Programa
+router.delete('/api/admin/platforms/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.platform.delete({ where: { id } });
+    res.json({ message: 'Programa eliminado correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'No se pudo eliminar el programa. Asegúrate de borrar sus empresas primero.' });
+  }
+});
+
+// Eliminar Empresa
+router.delete('/api/admin/companies/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.company.delete({ where: { id } });
+    res.json({ message: 'Empresa eliminada correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'No se pudo eliminar la empresa. Borra sus cuentas vinculadas primero.' });
+  }
+});
+
 // --- MONITOREO ---
 router.get('/api/health', async (req, res) => {
   let dbStatus = 'DISCONNECTED';
