@@ -272,9 +272,14 @@ const PortalApp = () => {
               )}
 
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Contenido Enviado</p>
-                <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100 font-mono text-[10px] text-slate-500 overflow-auto max-h-60 leading-relaxed">
-                  {selectedMail.bodyHtml || "Sin contenido HTML registrado."}
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Vista Previa del Correo</p>
+                <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-inner h-80">
+                  <iframe 
+                    srcDoc={selectedMail.bodyHtml} 
+                    title="Preview"
+                    className="w-full h-full border-none"
+                    sandbox="allow-popups allow-popups-to-escape-sandbox"
+                  />
                 </div>
               </div>
             </div>
