@@ -93,3 +93,13 @@ model AppSetting {
   updatedAt    DateTime @updatedAt
 }
 
+// 6. SEGURIDAD PERSISTENTE (Para que no se olvide al reiniciar el NAS)
+model AdminAuth {
+  id        Int      @id @default(1)
+  code      String?
+  uses      Int      @default(0)
+  maxUses   Int      @default(5)
+  expiresAt DateTime?
+  updatedAt DateTime @updatedAt
+}
+

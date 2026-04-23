@@ -7,46 +7,13 @@ const { trackOpening } = require('../controllers/trackingController');
 const { getGoogleAuthUrl, getGoogleTokens } = require('../services/authService');
 const notificationService = require('../services/notificationService');
 const path = require('path');
+const fs = require('fs');
 
 // Middleware de Log
 router.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
-
-// Ruta para persistencia del código (fuera de la memoria volátil)
-const OTP_FILE = path.join(__dirname, '../../otp_state.json');
-
-// --- SEGURIDAD: ALMACÉN DE LLAVE DINÁMICA ---
-let currentOTP = {
-  code: null,
-  uses: 0,
-  maxUses: 5,
-  expiresAt: null
-};
-
-// Cargar estado inicial si existe
-try {
-  if (fs.existsSync(OTP_FILE)) {
-    const saved = fs.readFileSync(OTP_FILE, 'utf8');
-    const parsed = JSON.parse(saved);
-    if (parsed.expiresAt) {
-      parsed.expiresAt = new Date(parsed.expiresAt);
-    }
-    currentOTP = parsed;
-    console.log('💾 Estado de OTP recuperado del disco.');
-  }
-} catch (e) {
-  console.log('⚠️ No se pudo cargar el estado de OTP anterior.');
-}
-
-const saveOTP = () => {
-  try {
-    fs.writeFileSync(OTP_FILE, JSON.stringify(currentOTP, null, 2));
-  } catch (e) {
-    console.error('❌ Error al guardar el estado de OTP:', e.message);
-  }
-};
 
 // --- API ADMINISTRATIVA (DASHBOARD) ---
 
@@ -80,10 +47,18 @@ router.get('/api/admin/platforms', async (req, res) => {
   }
 });
 
-// Crear Programa
+// Crear Programa (CON INTELIGENCIA ANTI-DUPLICADOS)
 router.post('/api/admin/platforms', async (req, res) => {
   const { name, url } = req.body;
   try {
+    // 1. Buscar si ya existe por nombre
+    const existing = await prisma.platform.findFirst({ where: { name } });
+    if (existing) {
+      console.log(`♻️ Reutilizando Programa existente: ${name}`);
+      return res.json(existing);
+    }
+
+    // 2. Si no existe, crear uno nuevo
     const platform = await prisma.platform.create({
       data: { 
         name, 
@@ -97,10 +72,20 @@ router.post('/api/admin/platforms', async (req, res) => {
   }
 });
 
-// Crear Empresa (NUEVO ENDPOINT COMPLETO)
+// Crear Empresa (CON INTELIGENCIA ANTI-DUPLICADOS)
 router.post('/api/admin/companies', async (req, res) => {
   const { name, platformId, rnc } = req.body;
   try {
+    // 1. Buscar si ya existe la empresa dentro de este programa
+    const existing = await prisma.company.findFirst({
+      where: { name, platformId }
+    });
+
+    if (existing) {
+      console.log(`♻️ Reutilizando Empresa existente: ${name}`);
+      return res.json(existing);
+    }
+
     const company = await prisma.company.create({
       data: { 
         name, 
@@ -178,60 +163,78 @@ router.post('/api/admin/request-otp', async (req, res) => {
 
   const now = new Date();
   
-  // Reutilizar código si sigue vivo (SIN mandar nuevo mensaje de Pushover)
-  if (currentOTP.code && currentOTP.uses < currentOTP.maxUses && currentOTP.expiresAt > now) {
+  // Buscar llave actual en BD
+  let auth = await prisma.adminAuth.findUnique({ where: { id: 1 } });
+
+  // Reutilizar código si sigue vivo (Dura 7 días, pero máximo 5 usos)
+  if (auth && auth.code && auth.uses < auth.maxUses && auth.expiresAt > now) {
     return res.json({ 
       message: 'Tu llave sigue activa. Usa el último código recibido.',
       reused: true 
     });
   }
 
-  // Generar nuevo si no hay o murió
+  // Generar nuevo si no hay, murió por tiempo o se agotaron los usos
   const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-  currentOTP = {
-    code: newCode,
-    uses: 0,
-    maxUses: 5,
-    expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000)
-  };
-
-  saveOTP(); // Guardar en disco
+  
+  auth = await prisma.adminAuth.upsert({
+    where: { id: 1 },
+    update: {
+      code: newCode,
+      uses: 0,
+      maxUses: 5,
+      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // Llave dura 7 DÍAS
+    },
+    create: {
+      id: 1,
+      code: newCode,
+      uses: 0,
+      maxUses: 5,
+      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    }
+  });
 
   console.log('-------------------------------------------');
-  console.log(`🔐 NUEVO CÓDIGO GENERADO: ${newCode}`);
+  console.log(`🔐 NUEVO CÓDIGO GENERADO Y GUARDADO EN BD: ${newCode}`);
   console.log('-------------------------------------------');
 
-  const alertMsg = `🔐 Nueva Llave Maestra: ${newCode}\n\nUso permitido: 5 veces.\nVigencia: 24 horas.`;
+  const alertMsg = `🔐 Nueva Llave Maestra: ${newCode}\n\nUso permitido: 5 veces.\nVigencia: 7 días.`;
   await notificationService.sendAdminAlert('Acceso de Seguridad', alertMsg, 1);
 
   res.json({ message: 'Nuevo código enviado por Pushover' });
 });
 
 // --- SEGURIDAD: VERIFICAR CÓDIGO ---
-router.post('/api/admin/verify-otp', (req, res) => {
+router.post('/api/admin/verify-otp', async (req, res) => {
   const { code } = req.body;
   const now = new Date();
 
-  if (!currentOTP.code || currentOTP.code !== code) {
+  // Buscar llave en BD
+  const auth = await prisma.adminAuth.findUnique({ where: { id: 1 } });
+
+  if (!auth || !auth.code || auth.code !== code) {
     return res.status(401).json({ error: 'Código incorrecto' });
   }
 
-  if (currentOTP.uses >= currentOTP.maxUses) {
+  if (auth.uses >= auth.maxUses) {
     return res.status(401).json({ error: 'Llave agotada (5/5 usos). Solicita una nueva.' });
   }
 
-  if (currentOTP.expiresAt < now) {
-    return res.status(401).json({ error: 'Llave expirada (pasaron 24h).' });
+  if (auth.expiresAt < now) {
+    return res.status(401).json({ error: 'Llave expirada (pasaron 7 días).' });
   }
 
-  currentOTP.uses += 1;
-  saveOTP(); // Actualizar usos en disco
+  // Incrementar usos en BD
+  const updatedAuth = await prisma.adminAuth.update({
+    where: { id: 1 },
+    data: { uses: { increment: 1 } }
+  });
   
   res.json({ 
     success: true, 
-    usesDone: currentOTP.uses,
-    maxUses: currentOTP.maxUses,
-    message: `Acceso concedido. Uso ${currentOTP.uses} de 5.`
+    usesDone: updatedAuth.uses,
+    maxUses: updatedAuth.maxUses,
+    message: `Acceso concedido. Uso ${updatedAuth.uses} de 5. Esta sesión dura 24h.`
   });
 });
 
