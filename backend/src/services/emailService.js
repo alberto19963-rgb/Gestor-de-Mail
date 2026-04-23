@@ -40,6 +40,11 @@ const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = 
     const path = require('path');
     const attachmentDir = path.join(__dirname, '../../attachments');
 
+    // Asegurar que la carpeta existe
+    if (!fs.existsSync(attachmentDir)) {
+      fs.mkdirSync(attachmentDir, { recursive: true });
+    }
+
     for (const file of attachments) {
       const fileId = require('crypto').randomUUID();
       const fileName = file.name;

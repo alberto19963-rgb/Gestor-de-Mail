@@ -25,6 +25,7 @@ services:
       PORT: 3001
     volumes:
       - ./backend/otp_state.json:/usr/src/app/otp_state.json
+      - ./backend/attachments:/usr/src/app/attachments
     depends_on:
       - db
 
