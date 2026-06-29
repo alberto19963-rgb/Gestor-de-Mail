@@ -69,6 +69,7 @@ const App = () => {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState(''); 
+  const [linkEmail, setLinkEmail] = useState('');
   const [setupStep, setSetupStep] = useState(1);
   const [selectedProvider, setSelectedProvider] = useState('gmail');
   const [isTestMode, setIsTestMode] = useState(false); 
@@ -813,9 +814,23 @@ const App = () => {
                   </p>
                 </div>
               </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Correo de la Tienda (Gmail)</label>
+                <input 
+                  type="email" 
+                  value={linkEmail}
+                  onChange={(e) => setLinkEmail(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm mb-4" 
+                  placeholder="ejemplo@gmail.com" 
+                  required 
+                />
+              </div>
 
               <button 
-                onClick={() => window.location.href = `${API_BASE.replace('/admin', '')}/auth/google?companyId=${selectedCompany.id}`}
+                onClick={() => {
+                  if(!linkEmail) return alert('Por favor, ingresa el correo primero.');
+                  window.location.href = `${API_BASE.replace('/admin', '')}/auth/google?companyId=${selectedCompany.id}&email=${linkEmail}`;
+                }}
                 className="w-full flex items-center justify-between p-5 bg-white border-2 border-slate-100 rounded-2xl hover:border-red-500 hover:bg-red-50 transition-all group"
               >
                 <div className="flex items-center space-x-4">

@@ -2,13 +2,27 @@ const nodemailer = require('nodemailer');
 const { google } = require('googleapis');
 const prisma = require('../config/db');
 
-const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = []) => {
+const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = [], senderName = null, existingSentEmailId = null) => {
   const account = await prisma.emailAccount.findUnique({
     where: { id: accountId },
     include: { company: true }
   });
 
   if (!account) throw new Error('Cuenta de email no encontrada');
+
+  // Validar Blacklist (Reputación)
+  const isBlacklisted = await prisma.unsubscribedEmail.findUnique({
+    where: { accountId_email: { accountId, email: recipient } }
+  });
+  if (isBlacklisted) {
+    if (existingSentEmailId) {
+      await prisma.sentEmail.update({
+        where: { id: existingSentEmailId },
+        data: { status: 'BOUNCED', errorMessage: 'Recipient is blacklisted (unsubscribed)' }
+      });
+    }
+    throw new Error('El destinatario se ha dado de baja. Envío bloqueado para proteger la reputación.');
+  }
 
   // Cargar Settings Maestras
   let googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -22,16 +36,26 @@ const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = 
     }
   }
 
-  // Generar Tracking ID
-  const sentEmail = await prisma.sentEmail.create({
-    data: {
-      accountId,
-      recipient,
-      subject,
-      bodyHtml,
-      status: 'SENDING'
-    }
-  });
+  let sentEmail;
+  if (existingSentEmailId) {
+    sentEmail = await prisma.sentEmail.findUnique({ where: { id: existingSentEmailId } });
+    if (!sentEmail) throw new Error('Email en cola no encontrado');
+    
+    sentEmail = await prisma.sentEmail.update({
+      where: { id: existingSentEmailId },
+      data: { status: 'SENDING' }
+    });
+  } else {
+    sentEmail = await prisma.sentEmail.create({
+      data: {
+        accountId,
+        recipient,
+        subject,
+        bodyHtml,
+        status: 'SENDING'
+      }
+    });
+  }
 
   // Procesar Adjuntos Inteligentes
   let attachmentHtml = '';
@@ -78,9 +102,19 @@ const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = 
     }
   }
 
-  // Inyectar píxel de seguimiento y adjuntos
+  // Inyectar píxel de seguimiento, adjuntos y link de desuscripción
   const trackingPixelUrl = `${process.env.BASE_URL || 'https://mail-api.rosariogroupllc.com'}/api/track/${sentEmail.trackingId}`;
-  const finalBodyHtml = `${bodyHtml}${attachmentHtml}<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />`;
+  const unsubscribeUrl = `${process.env.BASE_URL || 'https://mail-api.rosariogroupllc.com'}/api/unsubscribe/${accountId}/${encodeURIComponent(recipient)}`;
+  
+  const unsubscribeHtml = `
+    <div style="margin-top: 40px; text-align: center; font-family: sans-serif; font-size: 11px; color: #94a3b8;">
+      <p>Este correo fue enviado en nombre de ${account.company?.name || account.email}.</p>
+      <a href="${unsubscribeUrl}" style="color: #64748b; text-decoration: underline;">Dejar de recibir estos correos (Unsubscribe)</a>
+    </div>
+  `;
+  
+  const finalBodyHtml = `${bodyHtml}${attachmentHtml}${unsubscribeHtml}<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />`;
+  const fromHeader = senderName ? `"${senderName}" <${account.email}>` : account.email;
 
   try {
     let transporter;
@@ -93,6 +127,7 @@ const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = 
       
       // Codificar correo para Gmail API
       const str = [
+        `From: ${fromHeader}`,
         `To: ${recipient}`,
         `Subject: ${subject}`,
         'Content-Type: text/html; charset=utf-8',
@@ -124,7 +159,7 @@ const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = 
       });
 
       await transporter.sendMail({
-        from: account.email,
+        from: fromHeader,
         to: recipient,
         subject: subject,
         html: finalBodyHtml

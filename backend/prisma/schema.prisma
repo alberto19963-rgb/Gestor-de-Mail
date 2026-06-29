@@ -47,6 +47,7 @@ model EmailAccount {
   company          Company     @relation(fields: [companyId], references: [id])
   companyId        String
   sentEmails       SentEmail[]
+  unsubscribed     UnsubscribedEmail[]
   status           String      @default("ACTIVE") // ACTIVE, EXPIRED, ERROR
   lastErrorMessage String?
   createdAt        DateTime    @default(now())
@@ -126,3 +127,14 @@ model AdminAuth {
   updatedAt DateTime @updatedAt
 }
 
+// 7. PROTECCIÓN DE REPUTACIÓN (Bajas/Blacklist)
+model UnsubscribedEmail {
+  id        String   @id @default(uuid())
+  accountId String
+  account   EmailAccount @relation(fields: [accountId], references: [id])
+  email     String
+  reason    String?  @default("User Unsubscribed")
+  createdAt DateTime @default(now())
+
+  @@unique([accountId, email])
+}

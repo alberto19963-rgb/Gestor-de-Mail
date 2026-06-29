@@ -8,6 +8,7 @@ const { getGoogleAuthUrl, getGoogleTokens } = require('../services/authService')
 const notificationService = require('../services/notificationService');
 const path = require('path');
 const fs = require('fs');
+const { emailQueue } = require('../queues/emailQueue');
 
 // Middleware de Log
 router.use((req, res, next) => {
@@ -303,7 +304,7 @@ router.post('/api/admin/settings', async (req, res) => {
 
 // --- RUTAS DE ENVÍO Y TRACKING ---
 router.post('/api/send', async (req, res) => {
-  const { accountId, email, recipient, subject, bodyHtml, apiKey } = req.body;
+  const { accountId, email, senderName, recipient, subject, bodyHtml, apiKey } = req.body;
   
   // 1. Validar Plataforma
   const platform = await prisma.platform.findUnique({ where: { apiKey } });
@@ -325,8 +326,27 @@ router.post('/api/send', async (req, res) => {
 
     const { attachments } = req.body; // Array de { name, content, contentType }
 
-    const result = await sendEmail(targetAccountId, recipient, subject, bodyHtml, attachments);
-    res.json(result);
+    const sentEmail = await prisma.sentEmail.create({
+      data: {
+        accountId: targetAccountId,
+        recipient,
+        subject,
+        bodyHtml,
+        status: 'QUEUED'
+      }
+    });
+
+    await emailQueue.add('send-email', {
+      accountId: targetAccountId,
+      recipient,
+      subject,
+      bodyHtml,
+      attachments,
+      senderName,
+      sentEmailId: sentEmail.id
+    });
+
+    res.json({ ...sentEmail, message: 'Correo encolado para envío', queued: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -367,6 +387,19 @@ router.get('/api/download/:fileId', async (req, res) => {
 });
 
 // --- RUTAS DE AUTH (CALLBACKS) ---
+router.get('/api/auth/google', async (req, res) => {
+  try {
+    const { companyId, email } = req.query;
+    if (!companyId || !email) {
+      return res.status(400).send('Faltan parámetros companyId o email');
+    }
+    const authUrl = await getGoogleAuthUrl(JSON.stringify({ companyId, email }));
+    res.redirect(authUrl);
+  } catch (error) {
+    res.status(500).send('Error generando URL de Google: ' + error.message);
+  }
+});
+
 router.get('/auth/google/callback', async (req, res) => {
   const { code, state } = req.query;
   try {
@@ -499,5 +532,34 @@ router.post('/api/portal/login', async (req, res) => {
 });
 
 router.get('/api/track/:trackingId', trackOpening);
+
+// --- RUTA DE DESUSCRIPCIÓN (BLACKLIST) ---
+router.get('/api/unsubscribe/:accountId/:email', async (req, res) => {
+  const { accountId, email } = req.params;
+  try {
+    await prisma.unsubscribedEmail.upsert({
+      where: {
+        accountId_email: { accountId, email }
+      },
+      update: {},
+      create: {
+        accountId,
+        email,
+        reason: req.query.reason || 'User Unsubscribed via Link'
+      }
+    });
+
+    res.send(`
+      <html>
+        <body style="font-family: sans-serif; text-align: center; padding: 50px; color: #333;">
+          <h2 style="color: #e53e3e;">Suscripción Cancelada</h2>
+          <p>Has sido dado de baja exitosamente. Ya no recibirás correos de esta cuenta.</p>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    res.status(500).send('Error procesando la baja: ' + error.message);
+  }
+});
 
 module.exports = router;

@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+// Inicializar el Worker de BullMQ para procesar correos en segundo plano
+require('./workers/emailWorker');
+
 const routes = require('./routes/index');
 
 const app = express();
