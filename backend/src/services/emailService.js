@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 const { google } = require('googleapis');
 const prisma = require('../config/db');
 
-const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = [], senderName = null, existingSentEmailId = null) => {
+const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = [], senderName = null, fromAlias = null, existingSentEmailId = null) => {
   const account = await prisma.emailAccount.findUnique({
     where: { id: accountId },
     include: { company: true }
@@ -114,7 +114,9 @@ const sendEmail = async (accountId, recipient, subject, bodyHtml, attachments = 
   `;
   
   const finalBodyHtml = `${bodyHtml}${attachmentHtml}${unsubscribeHtml}<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />`;
-  const fromHeader = senderName ? `"${senderName}" <${account.email}>` : account.email;
+  
+  const senderEmail = fromAlias || account.email;
+  const fromHeader = senderName ? `"${senderName}" <${senderEmail}>` : senderEmail;
 
   try {
     let transporter;

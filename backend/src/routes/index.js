@@ -304,7 +304,7 @@ router.post('/api/admin/settings', async (req, res) => {
 
 // --- RUTAS DE ENVÍO Y TRACKING ---
 router.post('/api/send', async (req, res) => {
-  const { accountId, email, senderName, recipient, subject, bodyHtml, apiKey } = req.body;
+  const { accountId, email, senderName, fromAlias, recipient, subject, bodyHtml, apiKey } = req.body;
   
   // 1. Validar Plataforma
   const platform = await prisma.platform.findUnique({ where: { apiKey } });
@@ -343,6 +343,7 @@ router.post('/api/send', async (req, res) => {
       bodyHtml,
       attachments,
       senderName,
+      fromAlias,
       sentEmailId: sentEmail.id
     });
 

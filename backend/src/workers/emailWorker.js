@@ -4,13 +4,13 @@ const { sendEmail } = require('../services/emailService');
 const prisma = require('../config/db');
 
 const emailWorker = new Worker('email-queue', async (job) => {
-  const { accountId, recipient, subject, bodyHtml, attachments, senderName, sentEmailId } = job.data;
+  const { accountId, recipient, subject, bodyHtml, attachments, senderName, fromAlias, sentEmailId } = job.data;
   
   try {
     console.log(`[Worker] Procesando envío a ${recipient} (ID: ${sentEmailId})`);
     
-    // Llamar al servicio de email actualizado (que ahora aceptará sentEmailId)
-    await sendEmail(accountId, recipient, subject, bodyHtml, attachments, senderName, sentEmailId);
+    // Llamar al servicio de email actualizado (que ahora aceptará sentEmailId y fromAlias)
+    await sendEmail(accountId, recipient, subject, bodyHtml, attachments, senderName, fromAlias, sentEmailId);
     
     console.log(`[Worker] Envío exitoso a ${recipient}`);
   } catch (error) {
